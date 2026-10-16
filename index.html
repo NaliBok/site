@@ -1,8 +1,153 @@
-<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Текстовая RPG</title><link rel="stylesheet" href="styles.css"></head><body>
-<div id="login"><h1>Текстовая RPG</h1>
-<input id="nm" placeholder="Имя героя" maxlength="16">
-<select id="cl"><option value="war">Воин — крепкий, оглушает</option><option value="mag">Маг — огонь и поджог</option><option value="rog">Вор — криты и яд</option></select>
-<button id="solo">Играть одному</button><hr><span class="mu">Онлайн с друзьями (нужен запущенный сервер)</span>
-<input id="srv" placeholder="https://адрес-сервера.onrender.com"><span id="ping" class="mu"></span><button id="online">Подключиться</button><span id="err" class="warn"></span></div>
-<div id="game"><div class="top"><span id="status"></span><button id="menu">Выйти в меню</button></div><div class="main"><div id="log"></div><div id="side"></div></div><div class="foot"><input id="msg" placeholder="Чат (виден всем игрокам онлайн)…"><button id="snd">→</button></div></div>
-<script src="game.js"></script><script src="client.js"></script></body></html>
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f5f2">
+  <meta name="description" content="Минималистичная текстовая кооперативная RPG">
+  <title>Текстовая RPG</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="loginScreen" class="login-screen">
+    <section class="login-card" aria-labelledby="pageTitle">
+      <div class="eyebrow">ТЕКСТОВАЯ ПРИКЛЮЧЕНЧЕСКАЯ ИГРА</div>
+      <h1 id="pageTitle">Путешествие</h1>
+      <p class="muted intro">Исследуйте места, находите снаряжение и сражайтесь. Можно играть в одиночку или вместе с другими.</p>
+
+      <form id="loginForm" class="login-form">
+        <label for="playerName">Имя персонажа</label>
+        <input id="playerName" name="playerName" type="text" maxlength="24" autocomplete="nickname" placeholder="Путник" value="Путник">
+
+        <label for="classSelect">Класс</label>
+        <select id="classSelect" name="classSelect">
+          <option value="warrior">Воин — здоровье и защита</option>
+          <option value="mage">Маг — мана и заклинания</option>
+          <option value="rogue">Вор — критические удары и яд</option>
+        </select>
+
+        <div class="button-stack">
+          <button id="singleBtn" class="button primary" type="button">Играть в одиночку</button>
+          <button id="multiBtn" class="button" type="button">Играть по сети</button>
+        </div>
+      </form>
+
+      <section class="server-box" aria-labelledby="serverTitle">
+        <div class="section-heading">
+          <h2 id="serverTitle">Мультиплеер</h2>
+          <span id="serverStatus" class="status-pill status-unknown">Не проверен</span>
+        </div>
+        <p class="muted small">Адрес сервера нужен только для игры по сети. Проверка может разбудить бесплатный хостинг.</p>
+        <label for="serverUrl">WebSocket-сервер</label>
+        <input id="serverUrl" name="serverUrl" type="url" inputmode="url" spellcheck="false" placeholder="wss://ваш-сервис.onrender.com">
+        <div class="server-actions">
+          <button id="checkServerBtn" class="button small-button" type="button">Проверить сервер</button>
+          <span id="serverCheckText" class="muted small" aria-live="polite">Адрес можно изменить в любое время.</span>
+        </div>
+      </section>
+      <p class="footer-note">Одиночный прогресс хранится в этом браузере. Для сетевой игры сервер должен быть запущен отдельно.</p>
+    </section>
+  </main>
+
+  <main id="gameScreen" class="game-screen hidden" aria-label="Игровой экран">
+    <header class="topbar">
+      <div class="topbar-brand"><span class="brand-dot"></span><span>Путешествие</span></div>
+      <div id="connectionLine" class="connection-line" aria-live="polite">Подготовка игры…</div>
+      <button id="exitBtn" class="button small-button exit-button" type="button">Выйти в меню</button>
+    </header>
+
+    <div class="play-layout">
+      <section class="log-panel panel">
+        <div class="panel-header"><h2>События</h2><span class="soft-label">Журнал</span></div>
+        <ol id="logList" class="log-list" aria-live="polite" aria-relevant="additions"></ol>
+        <form id="chatForm" class="chat-form">
+          <label class="visually-hidden" for="chatInput">Сообщение в чат</label>
+          <input id="chatInput" type="text" maxlength="180" placeholder="Сообщение для всех игроков" autocomplete="off">
+          <button class="button primary chat-send" type="submit">Отправить</button>
+        </form>
+      </section>
+
+      <aside class="side-panel" aria-label="Персонаж и мир">
+        <section class="panel character-panel">
+          <div class="character-heading">
+            <div>
+              <div id="playerNameLine" class="player-name">Путник</div>
+              <div id="playerMeta" class="muted small">Воин · уровень 1</div>
+            </div>
+            <div id="goldLine" class="gold-value">0 зол.</div>
+          </div>
+          <div class="meter-block">
+            <div class="meter-label"><span>Здоровье</span><span id="hpText">0 / 0</span></div>
+            <div class="meter"><div id="hpBar" class="meter-fill hp-fill"></div></div>
+          </div>
+          <div class="meter-block">
+            <div class="meter-label"><span>Мана</span><span id="mpText">0 / 0</span></div>
+            <div class="meter"><div id="mpBar" class="meter-fill mp-fill"></div></div>
+          </div>
+          <div class="meter-block">
+            <div class="meter-label"><span>Опыт</span><span id="xpText">0 / 100</span></div>
+            <div class="meter"><div id="xpBar" class="meter-fill xp-fill"></div></div>
+          </div>
+          <div id="statsLine" class="stat-chips"></div>
+          <div id="effectsLine" class="effects-line"></div>
+        </section>
+
+        <section class="panel location-panel">
+          <div class="panel-header"><h2 id="locationTitle">Поселение</h2><span id="locationLevel" class="soft-label">Уровень 1+</span></div>
+          <p id="locationDesc" class="muted location-desc"></p>
+          <div id="combatBox" class="combat-box hidden">
+            <div class="combat-head"><strong id="enemyName">Противник</strong><span id="enemyLevel" class="muted small"></span></div>
+            <div class="meter"><div id="enemyHpBar" class="meter-fill enemy-fill"></div></div>
+            <div id="enemyHpText" class="muted small"></div>
+          </div>
+          <div class="action-grid">
+            <button id="attackBtn" class="button primary" type="button">Атаковать</button>
+            <button id="searchBtn" class="button" type="button">Искать</button>
+            <button id="fleeBtn" class="button" type="button">Сбежать</button>
+            <button id="restBtn" class="button" type="button">Отдых</button>
+          </div>
+          <div class="subheading">Навыки</div>
+          <div id="skillsList" class="skills-list"></div>
+          <div class="subheading">Переходы</div>
+          <div id="exitsList" class="exits-list"></div>
+        </section>
+
+        <section class="panel map-panel">
+          <div class="panel-header"><h2>Карта</h2><span class="soft-label">Туман войны</span></div>
+          <svg id="worldMap" class="world-map" viewBox="0 0 100 75" role="img" aria-label="Карта посещённых и соседних локаций" xmlns="http://www.w3.org/2000/svg"></svg>
+          <div class="map-legend"><span><i class="legend-dot current"></i>Вы здесь</span><span><i class="legend-dot visited"></i>Открыто</span><span><i class="legend-dot unknown"></i>Неизвестно</span></div>
+        </section>
+
+        <section class="panel equipment-panel">
+          <div class="panel-header"><h2>Снаряжение</h2><span class="soft-label">Экипировано</span></div>
+          <div id="equipmentList" class="equipment-list"></div>
+        </section>
+
+        <section class="panel inventory-panel">
+          <div class="panel-header"><h2>Инвентарь</h2><span id="inventoryCount" class="soft-label">0 предметов</span></div>
+          <div id="inventoryList" class="item-list"></div>
+        </section>
+
+        <section class="panel quest-panel">
+          <div class="panel-header"><h2>Задание</h2><span class="soft-label">Опыт и золото</span></div>
+          <p id="questText" class="muted small">Заданий пока нет.</p>
+          <button id="questBtn" class="button small-button" type="button">Взять задание</button>
+        </section>
+
+        <section class="panel shop-panel">
+          <div class="panel-header"><h2>Лавка</h2><span class="soft-label">Поселение</span></div>
+          <p class="muted small">Купленные предметы попадают в инвентарь. Продажа доступна в поселении.</p>
+          <div id="shopList" class="item-list shop-list"></div>
+        </section>
+
+        <section class="panel nearby-panel">
+          <div class="panel-header"><h2>Рядом</h2><span id="nearbyCount" class="soft-label">0 игроков</span></div>
+          <div id="nearbyList" class="nearby-list muted small">Пока никого нет.</div>
+        </section>
+      </aside>
+    </div>
+  </main>
+  <script src="game.js"></script>
+  <script src="client.js"></script>
+</body>
+</html>
