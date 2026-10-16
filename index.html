@@ -1,1 +1,8 @@
-hi
+<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Текстовая RPG</title><link rel="stylesheet" href="styles.css"></head><body>
+<div id="login"><h1>Текстовая RPG</h1>
+<input id="nm" placeholder="Имя героя" maxlength="16">
+<select id="cl"><option value="war">Воин — крепкий, оглушает</option><option value="mag">Маг — огонь и поджог</option><option value="rog">Вор — криты и яд</option></select>
+<button id="solo">Играть одному</button><hr><span class="mu">Онлайн с друзьями (нужен запущенный сервер)</span>
+<input id="srv" placeholder="wss://имя-сервиса.onrender.com"><button id="online">Подключиться</button><span id="err" class="warn"></span></div>
+<div id="game"><div class="main"><div id="log"></div><div id="side"></div></div><div class="foot"><input id="msg" placeholder="Чат (виден всем игрокам онлайн)…"><button id="snd">→</button></div></div>
+<script src="game.js"></script><script src="client.js"></script></body></html>
