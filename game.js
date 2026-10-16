@@ -4,13 +4,13 @@ const CL={war:{n:'Воин',hp:120,mp:20,atk:8,def:4,sk:'Удар щитом',co
 const IT={sword:{n:'Меч',t:'w',v:6,p:40},axe:{n:'Топор',t:'w',v:9,p:90},staff:{n:'Посох',t:'w',v:8,p:80},dagger:{n:'Кинжал',t:'w',v:7,p:60},blade:{n:'Клинок мрака',t:'w',v:16,p:300},
  leather:{n:'Кожанка',t:'a',v:3,p:40},mail:{n:'Кольчуга',t:'a',v:6,p:110},plate:{n:'Латы',t:'a',v:10,p:280},
  potion:{n:'Зелье лечения',t:'p',v:50,p:25},mana:{n:'Зелье маны',t:'m',v:30,p:25},fang:{n:'Клык',t:'x',p:8},herb:{n:'Трава',t:'x',p:5},ore:{n:'Руда',t:'x',p:12}};
-const LOC={town:{n:'Город',d:'Тёплые огни таверны. Здесь безопасно.',e:{n:'forest',e:'swamp',s:'mountain'},safe:1},
- forest:{n:'Тёмный лес',d:'Шелест листьев и чьи-то глаза в кустах.',e:{s:'town',n:'cave'},lv:1},
- swamp:{n:'Гнилое болото',d:'Пузыри газа, вонь и туман.',e:{w:'town',n:'ruins'},lv:3},
- mountain:{n:'Горный перевал',d:'Холодный ветер и острые камни.',e:{n:'town',e:'ruins'},lv:3},
- cave:{n:'Пещера слизней',d:'Капает вода. Эхо шагов.',e:{s:'forest',n:'dungeon'},lv:5},
- ruins:{n:'Древние руины',d:'Колонны, поросшие мхом.',e:{s:'swamp',w:'mountain',n:'dungeon'},lv:6},
- dungeon:{n:'Подземелье Тьмы',d:'Здесь пахнет смертью.',e:{s:'cave',e:'ruins'},lv:9}};
+const LOC={town:{x:1,y:2,s:'Город',n:'Город',d:'Тёплые огни таверны. Здесь безопасно.',e:{n:'forest',e:'swamp',s:'mountain'},safe:1},
+ forest:{x:1,y:1,s:'Лес',n:'Тёмный лес',d:'Шелест листьев и чьи-то глаза в кустах.',e:{s:'town',n:'cave',e:'ruins'},lv:1},
+ swamp:{x:2,y:2,s:'Болото',n:'Гнилое болото',d:'Пузыри газа, вонь и туман.',e:{w:'town',n:'ruins'},lv:3},
+ mountain:{x:1,y:3,s:'Перевал',n:'Горный перевал',d:'Холодный ветер и острые камни.',e:{n:'town'},lv:3},
+ cave:{x:1,y:0,s:'Пещера',n:'Пещера слизней',d:'Капает вода. Эхо шагов.',e:{s:'forest',e:'dungeon'},lv:5},
+ ruins:{x:2,y:1,s:'Руины',n:'Древние руины',d:'Колонны, поросшие мхом.',e:{s:'swamp',w:'forest',n:'dungeon'},lv:6},
+ dungeon:{x:2,y:0,s:'Подземелье',n:'Подземелье Тьмы',d:'Здесь пахнет смертью.',e:{w:'cave',s:'ruins'},lv:9}};
 const MON={1:[['Волк',30,6,12,6,'fang'],['Гоблин',36,7,15,9,'herb']],3:[['Болотная тварь',70,11,35,20,'herb'],['Горный тролль',90,13,45,26,'ore']],
  5:[['Слизень',120,15,60,30,'ore'],['Летучая тварь',100,18,65,32,'fang']],6:[['Каменный голем',170,20,95,50,'ore'],['Призрак',140,22,100,55,'herb']],9:[['Тёмный рыцарь',280,30,200,110,'ore'],['Демон',350,36,300,160,'fang']]};
 const QUESTS=[{k:5,g:60,xp:50},{k:8,g:120,xp:120},{k:12,g:250,xp:250}];
@@ -25,8 +25,11 @@ const bon=i=>i?IT[i.id].v+i.b:0;
 const atk=p=>CL[p.cls].atk+p.lv*2+bon(p.w), def=p=>CL[p.cls].def+p.lv+bon(p.a);
 const nm=i=>IT[i.id].n+(i.b?` +${i.b}`:'');
 const rnd=(a,b)=>a+Math.floor(Math.random()*(b-a+1));
-function view(p){const l=LOC[p.loc],f=F[p.loc];
- send(p,{t:'st',p:{name:p.name,cls:CL[p.cls].n,sk:CL[p.cls].sk,lv:p.lv,xp:p.xp,nx:p.lv*60,hp:p.hp,mhp:mhp(p),mp:p.mp,mmp:mmp(p),g:p.g,atk:atk(p),def:def(p),w:p.w&&nm(p.w),a:p.a&&nm(p.a),inv:p.inv.map(nm),q:p.q,kills:p.kills},
+function see(p){if(!p.seen)p.seen=[];if(!p.seen.includes(p.loc))p.seen.push(p.loc)}
+function mapOf(p){const ids=new Set(p.seen),edges=[];p.seen.forEach(i=>Object.values(LOC[i].e).forEach(j=>{ids.add(j);edges.push([i,j])}));
+ return{cur:p.loc,nodes:[...ids].map(i=>({id:i,x:LOC[i].x,y:LOC[i].y,n:LOC[i].s,v:p.seen.includes(i)})),edges}}
+function view(p){see(p);const l=LOC[p.loc],f=F[p.loc];
+ send(p,{t:'st',online:Object.keys(on).length,map:mapOf(p),p:{name:p.name,cls:CL[p.cls].n,sk:CL[p.cls].sk,lv:p.lv,xp:p.xp,nx:p.lv*60,hp:p.hp,mhp:mhp(p),mp:p.mp,mmp:mmp(p),g:p.g,atk:atk(p),def:def(p),w:p.w&&nm(p.w),a:p.a&&nm(p.a),inv:p.inv.map(nm),q:p.q,kills:p.kills},
  loc:{n:l.n,d:l.d,e:Object.keys(l.e),safe:!!l.safe,shop:!!l.safe,who:room(p.loc).filter(x=>x!==p).map(x=>`${x.name} (ур.${x.lv})`)},
  f:f&&{n:f.m[0],hp:f.hp,mhp:f.m[1],st:Object.keys(f.st)},shop:Object.entries(IT).filter(([k,v])=>v.t!=='x').map(([k,v])=>[k,v.n,v.p])})}
 const viewRoom=l=>room(l).forEach(view);
