@@ -1,0 +1,14 @@
+{
+  "name": "turn-based-strategy-web",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Vanilla JS turn-based strategy frontend for GitHub Pages and Node server for Render.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "check": "node --check game.js && node --check client.js && node --check server.js"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
