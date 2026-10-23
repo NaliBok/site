@@ -1,153 +1,79 @@
 <!doctype html>
 <html lang="ru">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#f7f5f2">
-  <meta name="description" content="Минималистичная текстовая кооперативная RPG">
-  <title>Текстовая RPG</title>
-  <link rel="stylesheet" href="styles.css">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minicraft+ в браузере</title>
+<style>
+  :root { --bg:#14161a; --fg:#e8e6df; --muted:#8d9199; --accent:#6bbf59; }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #game { position: fixed; inset: 0; }
+  #gate { position: fixed; inset: 0; z-index: 10; display: grid; place-content: center;
+    justify-items: center; gap: 14px; padding: 24px; text-align: center; background: var(--bg); }
+  #gate h1 { margin: 0; font-size: clamp(28px, 6vw, 44px); letter-spacing: .01em; }
+  #gate p { margin: 0; max-width: 46ch; color: var(--muted); }
+  #play { font: inherit; font-weight: 600; padding: 12px 36px; border: 0; border-radius: 4px;
+    background: var(--accent); color: #0e1a0b; cursor: pointer; }
+  #play:hover { filter: brightness(1.08); }
+  #play:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
+  #play[disabled] { opacity: .6; cursor: progress; }
+  #status { min-height: 1.5em; font-size: 14px; color: var(--muted); }
+  #status.error { color: #ff8a80; }
+  footer { position: fixed; left: 0; right: 0; bottom: 8px; z-index: 11; text-align: center;
+    font-size: 12px; color: var(--muted); pointer-events: none; }
+  footer a { color: inherit; pointer-events: auto; }
+  body.running footer, body.running #gate { display: none; }
+</style>
+<script src="https://cjrtnc.leaningtech.com/4.3/loader.js"></script>
 </head>
 <body>
-  <main id="loginScreen" class="login-screen">
-    <section class="login-card" aria-labelledby="pageTitle">
-      <div class="eyebrow">ТЕКСТОВАЯ ПРИКЛЮЧЕНЧЕСКАЯ ИГРА</div>
-      <h1 id="pageTitle">Путешествие</h1>
-      <p class="muted intro">Исследуйте места, находите снаряжение и сражайтесь. Можно играть в одиночку или вместе с другими.</p>
+<div id="game"></div>
 
-      <form id="loginForm" class="login-form">
-        <label for="playerName">Имя персонажа</label>
-        <input id="playerName" name="playerName" type="text" maxlength="24" autocomplete="nickname" placeholder="Путник" value="Путник">
+<div id="gate">
+  <h1>Minicraft+</h1>
+  <p>Версия 2.3.0-dev2 запускается прямо в браузере. Первый запуск может занять до минуты: игра подгружается по частям. Сохранения лежат в памяти вашего браузера.</p>
+  <button id="play" type="button">Играть</button>
+  <div id="status" role="status" aria-live="polite"></div>
+</div>
 
-        <label for="classSelect">Класс</label>
-        <select id="classSelect" name="classSelect">
-          <option value="warrior">Воин — здоровье и защита</option>
-          <option value="mage">Маг — мана и заклинания</option>
-          <option value="rogue">Вор — критические удары и яд</option>
-        </select>
+<footer>
+  Minicraft+ — открытый проект
+  (<a href="https://github.com/MinicraftPlus/minicraft-plus-revived" target="_blank" rel="noopener">исходный код</a>),
+  запуск через <a href="https://cheerpj.com" target="_blank" rel="noopener">CheerpJ</a>.
+</footer>
 
-        <div class="button-stack">
-          <button id="singleBtn" class="button primary" type="button">Играть в одиночку</button>
-          <button id="multiBtn" class="button" type="button">Играть по сети</button>
-        </div>
-      </form>
+<script type="module">
+  const btn = document.getElementById("play");
+  const status = document.getElementById("status");
+  const say = (t, err = false) => { status.textContent = t; status.classList.toggle("error", err); };
 
-      <section class="server-box" aria-labelledby="serverTitle">
-        <div class="section-heading">
-          <h2 id="serverTitle">Мультиплеер</h2>
-          <span id="serverStatus" class="status-pill status-unknown">Не проверен</span>
-        </div>
-        <p class="muted small">Адрес сервера нужен только для игры по сети. Проверка может разбудить бесплатный хостинг.</p>
-        <label for="serverUrl">WebSocket-сервер</label>
-        <input id="serverUrl" name="serverUrl" type="url" inputmode="url" spellcheck="false" placeholder="wss://ваш-сервис.onrender.com">
-        <div class="server-actions">
-          <button id="checkServerBtn" class="button small-button" type="button">Проверить сервер</button>
-          <span id="serverCheckText" class="muted small" aria-live="polite">Адрес можно изменить в любое время.</span>
-        </div>
-      </section>
-      <p class="footer-note">Одиночный прогресс хранится в этом браузере. Для сетевой игры сервер должен быть запущен отдельно.</p>
-    </section>
-  </main>
+  // jar лежит рядом с index.html; /app/ в CheerpJ = корень сайта,
+  // поэтому путь берём из адреса страницы (работает и на github.io/site/, и на Render).
+  const base = location.pathname.replace(/[^/]*$/, "");
+  const jar = "/app" + base + "minicraft.jar";
 
-  <main id="gameScreen" class="game-screen hidden" aria-label="Игровой экран">
-    <header class="topbar">
-      <div class="topbar-brand"><span class="brand-dot"></span><span>Путешествие</span></div>
-      <div id="connectionLine" class="connection-line" aria-live="polite">Подготовка игры…</div>
-      <button id="exitBtn" class="button small-button exit-button" type="button">Выйти в меню</button>
-    </header>
-
-    <div class="play-layout">
-      <section class="log-panel panel">
-        <div class="panel-header"><h2>События</h2><span class="soft-label">Журнал</span></div>
-        <ol id="logList" class="log-list" aria-live="polite" aria-relevant="additions"></ol>
-        <form id="chatForm" class="chat-form">
-          <label class="visually-hidden" for="chatInput">Сообщение в чат</label>
-          <input id="chatInput" type="text" maxlength="180" placeholder="Сообщение для всех игроков" autocomplete="off">
-          <button class="button primary chat-send" type="submit">Отправить</button>
-        </form>
-      </section>
-
-      <aside class="side-panel" aria-label="Персонаж и мир">
-        <section class="panel character-panel">
-          <div class="character-heading">
-            <div>
-              <div id="playerNameLine" class="player-name">Путник</div>
-              <div id="playerMeta" class="muted small">Воин · уровень 1</div>
-            </div>
-            <div id="goldLine" class="gold-value">0 зол.</div>
-          </div>
-          <div class="meter-block">
-            <div class="meter-label"><span>Здоровье</span><span id="hpText">0 / 0</span></div>
-            <div class="meter"><div id="hpBar" class="meter-fill hp-fill"></div></div>
-          </div>
-          <div class="meter-block">
-            <div class="meter-label"><span>Мана</span><span id="mpText">0 / 0</span></div>
-            <div class="meter"><div id="mpBar" class="meter-fill mp-fill"></div></div>
-          </div>
-          <div class="meter-block">
-            <div class="meter-label"><span>Опыт</span><span id="xpText">0 / 100</span></div>
-            <div class="meter"><div id="xpBar" class="meter-fill xp-fill"></div></div>
-          </div>
-          <div id="statsLine" class="stat-chips"></div>
-          <div id="effectsLine" class="effects-line"></div>
-        </section>
-
-        <section class="panel location-panel">
-          <div class="panel-header"><h2 id="locationTitle">Поселение</h2><span id="locationLevel" class="soft-label">Уровень 1+</span></div>
-          <p id="locationDesc" class="muted location-desc"></p>
-          <div id="combatBox" class="combat-box hidden">
-            <div class="combat-head"><strong id="enemyName">Противник</strong><span id="enemyLevel" class="muted small"></span></div>
-            <div class="meter"><div id="enemyHpBar" class="meter-fill enemy-fill"></div></div>
-            <div id="enemyHpText" class="muted small"></div>
-          </div>
-          <div class="action-grid">
-            <button id="attackBtn" class="button primary" type="button">Атаковать</button>
-            <button id="searchBtn" class="button" type="button">Искать</button>
-            <button id="fleeBtn" class="button" type="button">Сбежать</button>
-            <button id="restBtn" class="button" type="button">Отдых</button>
-          </div>
-          <div class="subheading">Навыки</div>
-          <div id="skillsList" class="skills-list"></div>
-          <div class="subheading">Переходы</div>
-          <div id="exitsList" class="exits-list"></div>
-        </section>
-
-        <section class="panel map-panel">
-          <div class="panel-header"><h2>Карта</h2><span class="soft-label">Туман войны</span></div>
-          <svg id="worldMap" class="world-map" viewBox="0 0 100 75" role="img" aria-label="Карта посещённых и соседних локаций" xmlns="http://www.w3.org/2000/svg"></svg>
-          <div class="map-legend"><span><i class="legend-dot current"></i>Вы здесь</span><span><i class="legend-dot visited"></i>Открыто</span><span><i class="legend-dot unknown"></i>Неизвестно</span></div>
-        </section>
-
-        <section class="panel equipment-panel">
-          <div class="panel-header"><h2>Снаряжение</h2><span class="soft-label">Экипировано</span></div>
-          <div id="equipmentList" class="equipment-list"></div>
-        </section>
-
-        <section class="panel inventory-panel">
-          <div class="panel-header"><h2>Инвентарь</h2><span id="inventoryCount" class="soft-label">0 предметов</span></div>
-          <div id="inventoryList" class="item-list"></div>
-        </section>
-
-        <section class="panel quest-panel">
-          <div class="panel-header"><h2>Задание</h2><span class="soft-label">Опыт и золото</span></div>
-          <p id="questText" class="muted small">Заданий пока нет.</p>
-          <button id="questBtn" class="button small-button" type="button">Взять задание</button>
-        </section>
-
-        <section class="panel shop-panel">
-          <div class="panel-header"><h2>Лавка</h2><span class="soft-label">Поселение</span></div>
-          <p class="muted small">Купленные предметы попадают в инвентарь. Продажа доступна в поселении.</p>
-          <div id="shopList" class="item-list shop-list"></div>
-        </section>
-
-        <section class="panel nearby-panel">
-          <div class="panel-header"><h2>Рядом</h2><span id="nearbyCount" class="soft-label">0 игроков</span></div>
-          <div id="nearbyList" class="nearby-list muted small">Пока никого нет.</div>
-        </section>
-      </aside>
-    </div>
-  </main>
-  <script src="game.js"></script>
-  <script src="client.js"></script>
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    say("Запускаю виртуальную машину Java…");
+    try {
+      await cheerpjInit({
+        version: 8,
+        // сохранения и настройки идут в постоянное хранилище браузера (IndexedDB)
+        javaProperties: ["user.home=/files", "java.awt.headless=false"]
+      });
+      say("Загружаю игру…");
+      document.body.classList.add("running");
+      cheerpjCreateDisplay(-1, -1, document.getElementById("game"));
+      await cheerpjRunJar(jar);
+    } catch (e) {
+      document.body.classList.remove("running");
+      btn.disabled = false;
+      say("Не удалось запустить игру: " + (e && e.message ? e.message : e) + ". Откройте консоль браузера (F12) и пришлите текст ошибки.", true);
+      console.error(e);
+    }
+  });
+</script>
 </body>
 </html>
