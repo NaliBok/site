@@ -26,6 +26,7 @@ function cleanText(value, fallback, max = 22) {
   const s = String(value == null ? '' : value).replace(/[\u0000-\u001f\u007f]/g, '').trim();
   return (s || fallback).slice(0, max);
 }
+function clone(value) { return JSON.parse(JSON.stringify(value)); }
 function cleanTribe(value) {
   const s = String(value || 'IMPERIUS').toUpperCase();
   return Engine.TRIBES.some(t => t.id === s) ? s : 'IMPERIUS';
@@ -46,19 +47,51 @@ function onlineCount() {
 }
 function getRoom(code) { return rooms.get(String(code || '').toUpperCase()); }
 function roomSummary(room) {
+  const now = Date.now();
   return {
-    code: room.code,
-    hostId: room.hostId,
+    code: room.code, hostId: room.hostId,
     hostName: room.players.find(p => p.id === room.hostId)?.name || 'Хост',
-    mapSize: room.mapSize,
-    maxPlayers: room.maxPlayers,
-    started: room.started,
-    finished: room.finished,
-    closed: room.closed,
-    createdAt: room.createdAt,
-    updatedAt: room.updatedAt,
-    players: room.players.map(p => ({ id: p.id, name: p.name, tribe: p.tribe, tribeName: Engine.TRIBES.find(t => t.id === p.tribe)?.name || p.tribe, isHost: p.id === room.hostId, connected: true }))
+    roomName: room.roomName || 'Новая партия', mapSize: room.mapSize, mapType: room.mapType || 'CONTINENT',
+    maxPlayers: room.maxPlayers, started: room.started, finished: room.finished, closed: room.closed,
+    paused: !!room.paused, privacy: room.privacy || 'PUBLIC', spectators: room.spectators !== false,
+    spectatorDelay: Number(room.spectatorDelay || 0), allowPause: room.allowPause !== false,
+    timeLimitSeconds: Number(room.timeLimitSeconds || 0), replacePolicy: room.replacePolicy || 'BOT',
+    createdAt: room.createdAt, updatedAt: room.updatedAt,
+    players: room.players.map(p => ({ id: p.id, name: p.name, isHost: p.id === room.hostId, isAI: !!p.isAI,
+      connected: !!p.isAI || now - Number(p.lastSeen || 0) < 45000 }))
   };
+}
+function snapshotRoom(room) {
+  if (!room.game) return;
+  room.history = room.history || [];
+  room.history.push({ turn: room.game.turn, savedAt: Date.now(), state: clone(room.game) });
+  if (room.history.length > 600) room.history = room.history.slice(-600);
+}
+function spectatorStateFor(room) {
+  if (room.spectators === false) throw Object.assign(new Error('Наблюдение запрещено создателем комнаты.'), { status: 403 });
+  if (!room.game || !room.started) return null;
+  const delay = Math.max(0, Math.min(100, Number(room.spectatorDelay) || 0));
+  const targetTurn = Math.max(1, Number(room.game.turn) - delay);
+  const history = room.history || [];
+  const available = history.filter(item => item.turn <= targetTurn);
+  return clone((available.length ? available[available.length - 1] : history[0])?.state || room.game);
+}
+function runRoomBotTurn(room, playerId) {
+  if (!room.game || room.game.over || Number(room.game.activePlayer) !== Number(playerId)) return;
+  const p = Engine.playerById(room.game, playerId);
+  if (!p || !p.isAI) return;
+  try { Engine.aiTurn(room.game, playerId); Engine.endTurn(room.game, playerId); } catch (_) {}
+  room.turnStartedAt = Date.now(); room.updatedAt = Date.now(); room.finished = !!room.game.over;
+  snapshotRoom(room);
+}
+function advanceAutomatedTurns(room) {
+  if(!room.game || room.game.over) return;
+  for(let i=0;i<room.players.length && !room.game.over;i++) {
+    const id=room.game.activePlayer, p=Engine.playerById(room.game,id);
+    if(!p || !p.isAI) break;
+    try { Engine.aiTurn(room.game,id); Engine.endTurn(room.game,id); } catch (_) { break; }
+    room.turnStartedAt=Date.now(); room.updatedAt=Date.now(); room.finished=!!room.game.over; snapshotRoom(room);
+  }
 }
 function requireRoomPlayer(room, playerId, playerToken) {
   const id = Number(playerId);
@@ -70,12 +103,22 @@ function requireRoomPlayer(room, playerId, playerToken) {
 }
 function sanitizeOptions(body) {
   const mapSize = Number(body.mapSize);
+  const mapType = ['ISLANDS','CONTINENT','PANGAEA','LAKES','ARCHIPELAGO','CUSTOM'].includes(body.mapType) ? body.mapType : 'CONTINENT';
+  let customWorld = null;
+  if (Array.isArray(body.customWorld) && body.customWorld.length >= 7 && body.customWorld.length <= 60 && body.customWorld.every(row => typeof row === 'string' && row.length === body.customWorld.length && /^[~w.T^ ]+$/.test(row))) customWorld = body.customWorld;
+  if (mapType === 'CUSTOM' && !customWorld) throw Object.assign(new Error('Для своего мира передайте квадратную ASCII-карту 7–60 клеток.'), { status: 400 });
+  const safeMapSize = customWorld ? customWorld.length : Math.max(7, Math.min(60, Number.isFinite(mapSize) ? Math.floor(mapSize) : 16));
   return {
-    name: cleanText(body.name, 'Игрок 1'),
-    tribe: cleanTribe(body.tribe),
-    mapSize: [11, 14, 16, 19, 22, 30].includes(mapSize) ? mapSize : 16,
+    name: cleanText(body.name, 'Игрок 1'), tribe: cleanTribe(body.tribe), mapSize: safeMapSize, mapType,
+    customWorld: mapType === 'CUSTOM' ? customWorld : null, seed: Number.isFinite(Number(body.seed)) && Number(body.seed) ? Number(body.seed) : undefined,
+    roomName: cleanText(body.roomName, 'Новая партия', 40),
+    privacy: body.privacy === 'PRIVATE' ? 'PRIVATE' : 'PUBLIC',
+    spectators: body.spectators !== false, spectatorDelay: Math.max(0, Math.min(100, Number(body.spectatorDelay) || 0)),
+    replacePolicy: ['ASK','BOT','WAIT'].includes(body.replacePolicy) ? body.replacePolicy : 'BOT',
+    allowPause: body.allowPause !== false, timeLimitSeconds: [0,60,120,180,300,600].includes(Number(body.timeLimitSeconds)) ? Number(body.timeLimitSeconds) : 0,
     maxPlayers: Math.max(2, Math.min(8, Number(body.maxPlayers) || 4)),
-    gameMode: body.gameMode === 'SCORE' ? 'SCORE' : 'DOMINATION'
+    gameMode: body.gameMode === 'SCORE' ? 'SCORE' : 'DOMINATION',
+    bannedTribes: Array.isArray(body.bannedTribes) ? body.bannedTribes.filter(id => Engine.TRIBES.some(t => t.id === id)).slice(0, 10) : []
   };
 }
 async function readBody(req) {
@@ -124,20 +167,23 @@ const server = http.createServer(async (req, res) => {
 
   try {
     if (req.method === 'GET' && (path === '/' || path === '/api/status' || path === '/api/ping')) {
-      json(res, 200, { ok: true, online: onlineCount(), rooms: rooms.size, timestamp: Date.now(), version: '1.0.0' });
+      json(res, 200, { ok: true, online: onlineCount(), rooms: rooms.size, timestamp: Date.now(), version: '2.0.0' });
     } else if (req.method === 'GET' && path === '/api/rooms') {
-      const open = [...rooms.values()].filter(r => !r.started && !r.closed && r.players.length < r.maxPlayers).map(roomSummary);
+      const open = [...rooms.values()].filter(r => !r.closed && r.privacy !== 'PRIVATE').sort((a,b)=>b.updatedAt-a.updatedAt).map(roomSummary);
       json(res, 200, { ok: true, rooms: open });
     } else if (req.method === 'POST' && path === '/api/rooms') {
       const body = await readBody(req);
       const options = sanitizeOptions(body);
+      if (options.bannedTribes.includes(options.tribe)) throw Object.assign(new Error('Выбранное племя запрещено настройками комнаты.'), { status: 400 });
       const code = newCode();
       const now = Date.now();
-      const player = { id: 1, token: crypto.randomBytes(24).toString('hex'), name: options.name, tribe: options.tribe };
+      const player = { id: 1, token: crypto.randomBytes(24).toString('hex'), name: options.name, tribe: options.tribe, isAI: false, lastSeen: now };
       const room = {
-        code, hostId: 1, players: [player], mapSize: options.mapSize, maxPlayers: options.maxPlayers,
-        gameMode: options.gameMode, started: false, finished: false, closed: false, game: null,
-        createdAt: now, updatedAt: now
+        code, hostId: 1, players: [player], mapSize: options.mapSize, mapType: options.mapType, customWorld: options.customWorld, seed: options.seed,
+        roomName: options.roomName, privacy: options.privacy, spectators: options.spectators, spectatorDelay: options.spectatorDelay,
+        replacePolicy: options.replacePolicy, allowPause: options.allowPause, timeLimitSeconds: options.timeLimitSeconds, bannedTribes: options.bannedTribes,
+        maxPlayers: options.maxPlayers, gameMode: options.gameMode, started: false, paused: false, finished: false, closed: false, game: null,
+        createdAt: now, updatedAt: now, turnStartedAt: now, history: []
       };
       rooms.set(code, room);
       json(res, 201, { ok: true, code, playerId: player.id, playerToken: player.token, room: roomSummary(room) });
@@ -147,6 +193,8 @@ const server = http.createServer(async (req, res) => {
       const actionMatch = path.match(/^\/api\/rooms\/([A-Z0-9]+)\/action$/i);
       const endMatch = path.match(/^\/api\/rooms\/([A-Z0-9]+)\/end-turn$/i);
       const roomMatch = path.match(/^\/api\/rooms\/([A-Z0-9]+)$/i);
+      const spectatorMatch = path.match(/^\/api\/rooms\/([A-Z0-9]+)\/spectate$/i);
+      const controlMatch = path.match(/^\/api\/rooms\/([A-Z0-9]+)\/(pause|resume|replace|recreate|close)$/i);
 
       if (req.method === 'POST' && joinMatch) {
         const room = getRoom(joinMatch[1]);
@@ -155,11 +203,12 @@ const server = http.createServer(async (req, res) => {
         if (room.players.length >= room.maxPlayers) throw Object.assign(new Error('В комнате нет свободных мест.'), { status: 409 });
         const body = await readBody(req);
         const options = sanitizeOptions({ name: body.name, tribe: body.tribe, mapSize: room.mapSize, maxPlayers: room.maxPlayers });
+        if (room.bannedTribes?.includes(options.tribe)) throw Object.assign(new Error('Это племя запрещено настройками комнаты.'), { status: 409 });
         if (room.players.some(p => p.name.toLowerCase() === options.name.toLowerCase())) {
           // Names need not be globally unique, but disambiguate them in the lobby.
           options.name = `${options.name} ${room.players.length + 1}`.slice(0, 22);
         }
-        const player = { id: room.players.length + 1, token: crypto.randomBytes(24).toString('hex'), name: options.name, tribe: options.tribe };
+        const player = { id: room.players.length + 1, token: crypto.randomBytes(24).toString('hex'), name: options.name, tribe: options.tribe, isAI: false, lastSeen: Date.now() };
         room.players.push(player); room.updatedAt = Date.now();
         json(res, 200, { ok: true, code: room.code, playerId: player.id, playerToken: player.token, room: roomSummary(room) });
       } else if (req.method === 'POST' && startMatch) {
@@ -172,26 +221,49 @@ const server = http.createServer(async (req, res) => {
           json(res, 200, { ok: true, room: roomSummary(room), state: roomStateFor(room, player.id) });
         } else {
           if (room.players.length < 2) throw Object.assign(new Error('Для начала нужны минимум два игрока.'), { status: 409 });
-          const configs = room.players.map(p => ({ name: p.name, tribe: p.tribe, isAI: false, connected: true }));
-          room.game = Engine.createGame({ mapSize: room.mapSize, players: configs, gameMode: room.gameMode });
-          room.started = true; room.updatedAt = Date.now();
+          const configs = room.players.map(p => ({ name: p.name, tribe: p.tribe, isAI: !!p.isAI, connected: !p.isAI, aiType: p.aiType || 'BALANCED', difficulty: p.difficulty || 'NORMAL' }));
+          room.game = Engine.createGame({ mapSize: room.mapSize, mapType: room.mapType, customWorld: room.customWorld, seed: room.seed, players: configs, gameMode: room.gameMode });
+          room.started = true; room.paused = false; room.turnStartedAt = Date.now(); room.updatedAt = Date.now(); snapshotRoom(room);
           json(res, 200, { ok: true, room: roomSummary(room), state: roomStateFor(room, player.id) });
         }
+      } else if (req.method === 'GET' && spectatorMatch) {
+        const room = getRoom(spectatorMatch[1]);
+        if (!room || room.closed) throw Object.assign(new Error('Комната не найдена или закрыта.'), { status: 404 });
+        json(res, 200, { ok: true, room: roomSummary(room), state: spectatorStateFor(room) });
       } else if (req.method === 'GET' && roomMatch) {
         const room = getRoom(roomMatch[1]);
         if (!room || room.closed) throw Object.assign(new Error('Комната не найдена или закрыта.'), { status: 404 });
-        room.updatedAt = Date.now();
         const rawPlayer = url.searchParams.get('playerId');
         const rawToken = url.searchParams.get('playerToken');
-        if (rawPlayer) requireRoomPlayer(room, rawPlayer, rawToken);
+        if (rawPlayer) { const player = requireRoomPlayer(room, rawPlayer, rawToken); player.lastSeen = Date.now(); }
+        room.updatedAt = Date.now();
         json(res, 200, { ok: true, room: roomSummary(room), playerId: rawPlayer ? Number(rawPlayer) : null, state: rawPlayer ? roomStateFor(room, rawPlayer) : null });
+      } else if (req.method === 'POST' && controlMatch) {
+        const room = getRoom(controlMatch[1]);
+        if (!room || room.closed) throw Object.assign(new Error('Комната не найдена или закрыта.'), { status: 404 });
+        const body = await readBody(req); const actor=requireRoomPlayer(room,body.playerId,body.playerToken);
+        if(actor.id!==room.hostId) throw Object.assign(new Error('Управлять комнатой может только хост.'), {status:403});
+        const action=controlMatch[2];
+        if(action==='pause') { if(!room.allowPause) throw Object.assign(new Error('Пауза запрещена настройками комнаты.'),{status:403}); if(!room.started) throw Object.assign(new Error('Матч ещё не начался.'),{status:409}); room.paused=true; }
+        else if(action==='resume') { room.paused=false; room.turnStartedAt=Date.now(); }
+        else if(action==='replace') {
+          const target=room.players.find(p=>p.id===Number(body.targetPlayerId));
+          if(!target||target.id===room.hostId) throw Object.assign(new Error('Нельзя заменить выбранного игрока.'),{status:400});
+          target.isAI=true; target.aiType='BALANCED'; target.name=`${target.name} (бот)`.slice(0,40); target.token=null; target.lastSeen=0;
+          if(room.game) { const gp=Engine.playerById(room.game,target.id); if(gp){gp.isAI=true;gp.connected=false;} if(room.game.activePlayer===target.id) runRoomBotTurn(room,target.id); advanceAutomatedTurns(room); }
+        }
+        else if(action==='recreate') { room.started=false; room.paused=false; room.finished=false; room.game=null; room.history=[]; room.turnStartedAt=Date.now(); room.players=room.players.map(p=>p.isAI? p : p); }
+        else if(action==='close') { room.closed=true; room.updatedAt=Date.now(); }
+        room.updatedAt=Date.now();
+        json(res,200,{ok:true,room:roomSummary(room),state:actor.id?roomStateFor(room,actor.id):null});
       } else if (req.method === 'POST' && (actionMatch || endMatch)) {
         const match = actionMatch || endMatch;
         const room = getRoom(match[1]);
         if (!room || room.closed) throw Object.assign(new Error('Комната не найдена или закрыта.'), { status: 404 });
         if (!room.started || !room.game) throw Object.assign(new Error('Матч ещё не начался. Дождитесь создателя комнаты.'), { status: 409 });
+        if (room.paused) throw Object.assign(new Error('Комната на паузе.'), { status: 409 });
         const body = await readBody(req);
-        const player = requireRoomPlayer(room, body.playerId, body.playerToken);
+        const player = requireRoomPlayer(room, body.playerId, body.playerToken); player.lastSeen = Date.now();
         if (room.finished || room.game.over) throw Object.assign(new Error('Матч уже завершён.'), { status: 409 });
         if (room.game.activePlayer !== player.id) throw Object.assign(new Error('Сейчас ход другого игрока.'), { status: 409 });
         const gamePlayer = Engine.playerById(room.game, player.id);
@@ -203,7 +275,9 @@ const server = http.createServer(async (req, res) => {
           throw Object.assign(err, { status: 400 });
         }
         room.updatedAt = Date.now();
+        if(endMatch) room.turnStartedAt = Date.now();
         room.finished = !!room.game.over;
+        if(endMatch) { snapshotRoom(room); advanceAutomatedTurns(room); }
         json(res, 200, { ok: true, room: roomSummary(room), state: roomStateFor(room, player.id) });
       } else {
         json(res, 404, { ok: false, error: 'Маршрут не найден.' });
@@ -224,6 +298,23 @@ server.headersTimeout = 66000;
 server.listen(PORT, HOST, () => {
   console.log(`Strategy server listening on ${HOST}:${PORT}`);
 });
-setInterval(pruneRooms, 10 * 60 * 1000).unref();
+setInterval(() => {
+  pruneRooms(); const now=Date.now();
+  for (const room of rooms.values()) {
+    if (!room.started || room.paused || room.finished || room.closed || !room.game || !room.timeLimitSeconds) continue;
+    if (now - Number(room.turnStartedAt || room.updatedAt) < room.timeLimitSeconds * 1000) continue;
+    const active=room.players.find(p=>p.id===room.game.activePlayer);
+    if (!active) { try { Engine.endTurn(room.game,room.game.activePlayer); } catch (_) {} }
+    else {
+      if (!active.isAI && room.replacePolicy === 'BOT' && now - Number(active.lastSeen || 0) > 45000) {
+        active.isAI=true; active.aiType='BALANCED'; active.name=`${active.name} (бот)`.slice(0,40); active.token=null;
+        const gp=Engine.playerById(room.game,active.id); if(gp){gp.isAI=true;gp.connected=false;}
+      }
+      if (active.isAI) { runRoomBotTurn(room,active.id); advanceAutomatedTurns(room); continue; }
+      else { try { Engine.endTurn(room.game,active.id); } catch (_) {} }
+    }
+    room.turnStartedAt=Date.now(); room.updatedAt=Date.now(); room.finished=!!room.game.over; snapshotRoom(room); advanceAutomatedTurns(room);
+  }
+}, 2000).unref();
 
 module.exports = { server, rooms };

@@ -12,7 +12,7 @@
     game: null, mode: 'bots', mapStyle: localStorage.getItem(STYLE_KEY) || 'pixel', selected: null,
     targetMode: null, localPlayerId: 1, serverUrl: normalizeServer(localStorage.getItem(SERVER_KEY) || DEFAULT_SERVER),
     roomCode: null, playerId: null, playerToken: null, roomHost: false, room: null, roomTimer: null, pingTimer: null,
-    zoom: 34, lastRender: 0, busy: false, modalKind: null, gameMode: 'DOMINATION', previousRoomSync: null
+    zoom: 34, lastRender: 0, busy: false, modalKind: null, gameMode: 'DOMINATION', previousRoomSync: null, spectating: false, roomListTimer: null
   };
   const tribesById = Object.fromEntries(E.TRIBES.map(t => [t.id,t]));
   const terrainSymbol = {UNKNOWN:'?',OCEAN:'~',WATER:'≈',PLAIN:'·',FOREST:'♣',MOUNTAIN:'▲'};
@@ -25,6 +25,8 @@
     const opt = document.createElement('option'); opt.value = tribe.id; opt.textContent = tribe.name; tribeSelect.appendChild(opt);
   });
   tribeSelect.value = 'IMPERIUS';
+  const bannedSelect = $('banned-tribes');
+  E.TRIBES.forEach(t => { const opt=document.createElement('option'); opt.value=t.id; opt.textContent=t.name; bannedSelect.appendChild(opt); });
 
   function normalizeServer(raw) {
     let url = String(raw || DEFAULT_SERVER).trim();
@@ -72,14 +74,18 @@
     state.mode = mode;
     document.querySelectorAll('.mode-tab').forEach(btn => { const active=btn.dataset.mode===mode; btn.classList.toggle('active',active); btn.setAttribute('aria-selected',String(active)); });
     $('opponents-field').classList.toggle('hidden', mode!=='bots');
+    $('bot-style-field').classList.toggle('hidden', mode!=='bots');
+    $('bot-difficulty-field').classList.toggle('hidden', mode!=='bots');
     $('local-count-field').classList.toggle('hidden', mode!=='local');
+    $('local-bot-count-field').classList.toggle('hidden', mode!=='local');
     $('online-settings').classList.toggle('hidden',mode!=='online');
     $('room-lobby').classList.toggle('hidden',mode!=='online');
-    if(mode==='online'&&!state.roomCode) { $('room-code').textContent='------'; $('room-lobby').querySelector('.room-code-wrap').classList.add('hidden'); $('start-online').classList.add('hidden'); $('join-room').classList.remove('hidden'); $('join-code-field').classList.add('hidden'); $('join-room').textContent='Войти по коду'; }
+    if(mode==='online'&&!state.roomCode) { $('room-lobby').querySelector('.room-code-wrap').classList.add('hidden'); $('room-players').innerHTML=''; $('room-admin-actions').classList.add('hidden'); $('start-online').classList.add('hidden'); $('join-room').classList.remove('hidden'); $('join-code-field').classList.add('hidden'); $('join-room').textContent='Войти по коду'; }
+    $('start-game').textContent=mode==='online'?'Создать комнату':'Начать партию';
     $('start-game').classList.toggle('hidden',mode==='online'&&!!state.roomCode);
-    $('mode-note').textContent = mode==='bots' ? 'Прогресс сохраняется в этом браузере' : mode==='local' ? 'Передавайте устройство следующему игроку' : 'Онлайн-комнаты работают через Render';
-    if(mode==='online') { setConnection('', 'Проверка сервера'); pingServer(); }
-    else setConnection('', 'Локальная игра');
+    $('mode-note').textContent = mode==='bots' ? 'Локальное сохранение' : mode==='local' ? 'Ходы передаются по очереди' : 'Подключение к Render';
+    if(mode==='online') { setConnection('', 'Подключение'); pingServer(); refreshPublicRooms(); }
+    else { stopRoomListPolling(); setConnection('', 'Локальный режим'); }
     $('setup-error').textContent='';
   }
   function showToast(message) {
@@ -93,46 +99,75 @@
   function activePlayer() { return state.game ? E.playerById(state.game,state.mode==='online' ? state.playerId : state.game.activePlayer) : null; }
   function currentTurnPlayer() { return state.game ? E.playerById(state.game,state.game.activePlayer) : null; }
   function isMyTurn() {
-    if(!state.game) return false;
+    if(!state.game || state.spectating) return false;
     if(state.mode==='online') return Number(state.game.activePlayer)===Number(state.playerId) && !state.game.over;
     return !currentTurnPlayer()?.isAI && !state.game.over;
   }
-  function currentViewingPlayerId() { return state.mode==='online' ? Number(state.playerId) : Number(state.game?.activePlayer||1); }
+  function currentViewingPlayerId() { return state.spectating ? Number(state.game?.activePlayer||1) : state.mode==='online' ? Number(state.playerId) : Number(state.game?.activePlayer||1); }
   function viewGame() {
     if(!state.game) return null;
+    if(state.spectating) return state.game;
     const id=currentViewingPlayerId();
     try { return E.getPlayerView(state.game,id); } catch (_) { return state.game; }
   }
   function localHumanCount() { return Number($('local-count').value||2); }
+  function selectedBans() { return [...$('banned-tribes').selectedOptions].map(o=>o.value); }
+  function availableTribes(primary) { return E.TRIBES.filter(t=>t.id===primary||!selectedBans().includes(t.id)); }
+  function customWorldRows() {
+    if ($('map-type').value !== 'CUSTOM') return null;
+    const raw=$('custom-world').value.trim();
+    if(!raw) throw new Error('Введите карту в формате строк ASCII или загрузите файл.');
+    let rows;
+    try {
+      const parsed=JSON.parse(raw);
+      rows=Array.isArray(parsed)?parsed:(Array.isArray(parsed.grid)?parsed.grid:parsed.rows);
+      if(Array.isArray(rows)&&rows.length&&Array.isArray(rows[0])) rows=rows.map(row=>row.map(v=>{const raw=String(v&&typeof v==='object'?(v.terrain||v.type||'PLAIN'):v).toUpperCase();return ({OCEAN:'~',WATER:'w',PLAIN:'.',FOREST:'T',MOUNTAIN:'^','~':'~','W':'w','.':'.','T':'T','^':'^'}[raw]||'.');}).join(''));
+    } catch(_) { rows=raw.split(/\r?\n/).map(x=>x.replace(/\s+$/,'')).filter(Boolean); }
+    if(!Array.isArray(rows)||rows.length<7||rows.length>60||!rows.every(r=>typeof r==='string'&&r.length===rows.length)) throw new Error('Свой мир должен быть квадратом от 7×7 до 60×60.');
+    if(rows.some(r=>/[^~w.T^ ]/.test(r))) throw new Error('В карте допустимы только символы ~ w . T ^.');
+    return rows;
+  }
+  function getRequestedMapSize() {
+    const selected=$('map-size').value;
+    const n=selected==='custom'?Number($('custom-map-size').value):Number(selected);
+    if(!Number.isInteger(n)||n<7||n>60) throw new Error('Размер карты должен быть от 7 до 60.');
+    return n;
+  }
   function configPlayers() {
     const name=($('player-name').value.trim()||'Игрок 1').slice(0,22); const tribe=$('tribe-select').value;
+    const bans=selectedBans();
+    if(bans.includes(tribe)) throw new Error('Ваше племя выбрано в списке запретов.');
+    const available=E.TRIBES.filter(t=>!bans.includes(t.id));
+    if(available.length < 2) throw new Error('Для игры оставьте не менее двух доступных племён.');
     const configs=[{name,tribe,isAI:false}];
+    const used=new Set([tribe]);
+    function chooseTribe(preferredIndex) {
+      for(let j=0;j<E.TRIBES.length;j++) { const t=E.TRIBES[(preferredIndex+j)%E.TRIBES.length]; if(!bans.includes(t.id)&&!used.has(t.id)) {used.add(t.id);return t.id;} }
+      return available.find(t=>!used.has(t.id))?.id || available[0].id;
+    }
     if(state.mode==='bots') {
       const count=Number($('bot-count').value||3);
-      for(let i=0;i<count;i++) {
-        let t=E.TRIBES[(E.TRIBES.findIndex(x=>x.id===tribe)+1+i)%E.TRIBES.length];
-        if(t.id===tribe) t=E.TRIBES[(i+1)%E.TRIBES.length];
-        configs.push({name:`Бот ${i+2}`,tribe:t.id,isAI:true});
-      }
+      for(let i=0;i<count&&configs.length<8;i++) configs.push({name:`Бот ${i+2}`,tribe:chooseTribe((E.TRIBES.findIndex(x=>x.id===tribe)+1+i)%E.TRIBES.length),isAI:true,aiType:$('bot-style').value,difficulty:$('bot-difficulty').value});
     } else if(state.mode==='local') {
-      const count=localHumanCount();
-      for(let i=1;i<count;i++) {
-        let t=E.TRIBES[(E.TRIBES.findIndex(x=>x.id===tribe)+i)%E.TRIBES.length];
-        if(t.id===tribe) t=E.TRIBES[i%E.TRIBES.length];
-        configs.push({name:`Игрок ${i+1}`,tribe:t.id,isAI:false});
-      }
+      const humans=localHumanCount(), bots=Number($('local-bot-count').value||0);
+      for(let i=1;i<humans&&configs.length<8;i++) configs.push({name:`Игрок ${i+1}`,tribe:chooseTribe((E.TRIBES.findIndex(x=>x.id===tribe)+i)%E.TRIBES.length),isAI:false});
+      for(let i=0;i<bots&&configs.length<8;i++) configs.push({name:`Бот ${configs.length+1}`,tribe:chooseTribe((E.TRIBES.findIndex(x=>x.id===tribe)+humans+i)%E.TRIBES.length),isAI:true,aiType:'BALANCED',difficulty:'NORMAL'});
     }
     return configs;
   }
   function startLocalGame() {
-    stopRoomPolling(); state.roomCode=null; state.playerId=null; state.room=null;
-    const game=E.createGame({name:$('player-name').value.trim()||'Игрок 1',tribe:$('tribe-select').value,mapSize:Number($('map-size').value),players:configPlayers(),gameMode:'DOMINATION'});
-    state.game=game; state.localPlayerId=1; state.selected=null; state.targetMode=null;
-    try { localStorage.setItem(LOCAL_SAVE_KEY,JSON.stringify({game,mode:state.mode,savedAt:Date.now()})); } catch(_) {}
-    showGame(); if(state.mode==='bots') runAIs();
+    try {
+      stopRoomPolling(); stopSpectatorPolling(); state.roomCode=null; state.playerId=null; state.room=null; state.spectating=false;
+      const players=configPlayers(); const customWorld=customWorldRows(); const mapSize=customWorld?customWorld.length:getRequestedMapSize();
+      const seed=Number($('world-seed').value)||undefined;
+      state.game=E.createGame({name:$('player-name').value.trim()||'Игрок 1',tribe:$('tribe-select').value,mapSize,players,gameMode:$('victory-mode').value,mapType:$('map-type').value,customWorld,seed});
+      state.selected=null; state.targetMode=null;
+      try { localStorage.setItem(LOCAL_SAVE_KEY,JSON.stringify({game:state.game,mode:state.mode,savedAt:Date.now()})); } catch(_) {}
+      showGame(); if(state.mode==='bots') runAIs();
+    } catch(err) { showError(err.message); }
   }
   function saveLocalGame() {
-    if(!state.game||state.mode==='online') { showToast('Онлайн-партия хранится на сервере, пока комната запущена.'); return; }
+    if(!state.game||state.mode==='online'||state.spectating) { showToast('Онлайн-партия хранится на сервере.'); return; }
     try { localStorage.setItem(LOCAL_SAVE_KEY,JSON.stringify({game:state.game,mode:state.mode,savedAt:Date.now()})); showToast('Партия сохранена в этом браузере.'); }
     catch (_) { showToast('Браузер не разрешил сохранить партию.'); }
   }
@@ -149,7 +184,7 @@
   }
   function showGame() {
     setGameScreens(true); renderAll();
-    $('game-heading').textContent='Карта мира';
+    $('game-heading').textContent='';
     $('map-dimension').textContent=`${state.game.mapSize} × ${state.game.mapSize}`;
     document.querySelectorAll('.style-button').forEach(b=>b.classList.toggle('active',b.dataset.style===state.mapStyle));
     $('game-map').classList.remove('view-ascii','view-pixel','view-vector'); $('game-map').classList.add(`view-${state.mapStyle}`);
@@ -160,15 +195,17 @@
   async function createOnlineRoom() {
     showError('');
     try {
-      const data=await api('/api/rooms',{method:'POST',body:{name:$('player-name').value.trim()||'Игрок 1',tribe:$('tribe-select').value,mapSize:Number($('map-size').value),maxPlayers:4,gameMode:'DOMINATION'}});
-      state.roomCode=data.code; state.playerId=data.playerId; state.playerToken=data.playerToken; state.roomHost=true; state.room=data.room||null; state.game=null; saveRoomSession();
-      $('room-lobby').classList.remove('hidden'); $('room-lobby').querySelector('.room-code-wrap').classList.remove('hidden'); $('room-code').textContent=data.code; $('start-game').classList.add('hidden');
-      setConnection('online','Комната создана'); renderLobby(data.room); pollRoom();
-      showToast('Комната создана. Отправьте код другим игрокам.');
+      if(selectedBans().includes($('tribe-select').value)) throw new Error('Ваше племя выбрано в списке запретов.');
+      const customWorld=customWorldRows(); const mapSize=customWorld?customWorld.length:getRequestedMapSize();
+      const options={name:$('player-name').value.trim()||'Игрок 1',tribe:$('tribe-select').value,mapSize,mapType:$('map-type').value,customWorld,seed:Number($('world-seed').value)||undefined,gameMode:$('victory-mode').value,maxPlayers:Number($('room-max-players').value),roomName:$('room-name').value.trim()||'Новая партия',privacy:$('room-privacy').value,spectators:$('room-spectators').value==='yes',spectatorDelay:Number($('room-spectator-delay').value),replacePolicy:$('room-replace-policy').value,allowPause:$('room-allow-pause').value==='yes',timeLimitSeconds:Number($('room-turn-time').value)||0,bannedTribes:selectedBans()};
+      const data=await api('/api/rooms',{method:'POST',body:options});
+      state.roomCode=data.code; state.playerId=data.playerId; state.playerToken=data.playerToken; state.roomHost=true; state.room=data.room||null; state.game=null; state.spectating=false; saveRoomSession();
+      $('room-lobby').classList.remove('hidden'); $('room-code').textContent=data.code; $('start-game').classList.add('hidden');
+      $('room-admin-actions').classList.remove('hidden'); setConnection('online','Комната создана'); renderLobby(data.room); pollRoom(); refreshPublicRooms();
     } catch(err) { showError(err.message); $('server-ping').textContent='Ошибка соединения'; $('server-ping').className='ping-state bad'; }
   }
-  async function joinOnlineRoom() {
-    const code=$('join-code').value.trim().toUpperCase().replace(/[^A-Z0-9]/g,''); if(code.length<4) { showError('Введите код комнаты.'); return; }
+  async function joinOnlineRoom(forcedCode) {
+    const code=String(forcedCode||$('join-code').value).trim().toUpperCase().replace(/[^A-Z0-9]/g,''); if(code.length<4) { showError('Введите код комнаты.'); return; }
     showError('');
     try {
       const data=await api(`/api/rooms/${encodeURIComponent(code)}/join`,{method:'POST',body:{name:$('player-name').value.trim()||'Игрок',tribe:$('tribe-select').value}});
@@ -191,11 +228,19 @@
     state.room=room;
     $('room-lobby').classList.remove('hidden'); $('room-lobby').querySelector('.room-code-wrap').classList.remove('hidden'); $('room-code').textContent=room.code||state.roomCode||'------';
     const players=room.players||[];
-    $('room-players').innerHTML=players.map(p=>`<span class="room-player-chip">${escapeHtml(p.name)}${p.isHost?' · хост':''}</span>`).join('') + (room.started?'<span class="room-player-chip">Матч начат</span>':'');
-    $('start-online').disabled=!state.roomHost||players.length<2||room.started;
-    $('start-online').textContent=room.started?'Матч начат':players.length<2?'Ожидание игрока…':'Начать матч';
+    $('room-players').innerHTML=players.map(p=>`<span class="room-player-chip">${escapeHtml(p.name)}${p.isHost?' · хост':''}${p.isAI?' · бот':''}${p.connected===false?' · нет связи':''}</span>`).join('') + (room.paused?'<span class="room-player-chip">Пауза</span>':'') + (room.started?'<span class="room-player-chip">Идёт матч</span>':'');
+    $('start-online').disabled=!state.roomHost||players.length<2||room.started||room.paused;
+    $('start-online').textContent=room.started?'Матч начат':players.length<2?'Ожидание игроков':'Начать матч';
     $('start-online').classList.toggle('hidden',!state.roomHost);
     $('join-room').classList.toggle('hidden',state.roomHost);
+    $('room-admin-actions').classList.toggle('hidden',!state.roomHost);
+    $('pause-room').classList.toggle('hidden',!room.started||room.paused||!room.allowPause);
+    $('resume-room').classList.toggle('hidden',!room.paused||!state.roomHost);
+    if(room.started) {
+      const eligible=players.filter(p=>!p.isHost);
+      $('replace-player-id').innerHTML=eligible.map(p=>`<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+      $('replace-player').disabled=!eligible.length;
+    }
     if(room.started && room.state) { state.game=room.state; showGame(); }
   }
   async function pollRoom() {
@@ -216,6 +261,38 @@
     } finally { if(state.roomCode) state.roomTimer=setTimeout(pollRoom,1700); }
   }
   function stopRoomPolling() { if(state.roomTimer) clearTimeout(state.roomTimer); state.roomTimer=null; }
+  async function refreshPublicRooms() {
+    if(state.mode!=='online') return;
+    try {
+      const data=await api('/api/rooms'); const list=$('public-room-list');
+      const rooms=data.rooms||[];
+      list.innerHTML=rooms.length?rooms.map(r=>`<div class="public-room-item"><div><strong>${escapeHtml(r.roomName||'Новая партия')}</strong><small>${escapeHtml(r.code)} · ${r.mapSize}×${r.mapSize} · ${(r.players||[]).length}/${r.maxPlayers} · ${r.paused?'пауза':r.started?'идёт':'ожидание'}${r.timeLimitSeconds?` · ${r.timeLimitSeconds}с`:''}</small></div><div class="public-room-actions">${!r.started&&!r.finished?`<button type="button" data-join-public="${escapeHtml(r.code)}">Войти</button>`:''}${r.started&&r.spectators?`<button type="button" data-watch-public="${escapeHtml(r.code)}">Наблюдать</button>`:''}</div></div>`).join(''):'<div class="muted-label">Открытых публичных комнат нет.</div>';
+      list.querySelectorAll('[data-join-public]').forEach(btn=>btn.addEventListener('click',()=>joinOnlineRoom(btn.dataset.joinPublic)));
+      list.querySelectorAll('[data-watch-public]').forEach(btn=>btn.addEventListener('click',()=>watchRoom(btn.dataset.watchPublic)));
+    } catch(err) { if(state.mode==='online') $('public-room-list').innerHTML='<div class="muted-label">Не удалось получить список комнат.</div>'; }
+    finally { stopRoomListPolling(); if(state.mode==='online') state.roomListTimer=setTimeout(refreshPublicRooms,5000); }
+  }
+  function stopRoomListPolling() { if(state.roomListTimer) clearTimeout(state.roomListTimer); state.roomListTimer=null; }
+  async function roomControl(action, extra={}) {
+    if(!state.roomCode||!state.playerToken) return;
+    try { const data=await api(`/api/rooms/${encodeURIComponent(state.roomCode)}/${action}`,{method:'POST',body:{playerId:state.playerId,playerToken:state.playerToken,...extra}}); if(data.room) {state.room=data.room;renderLobby(data.room);} if(data.state) {state.game=data.state;renderAll();} refreshPublicRooms(); showToast('Готово.'); }
+    catch(err) { showToast(err.message); }
+  }
+  async function watchRoom(code) {
+    try {
+      stopRoomPolling(); state.roomCode=code; state.playerId=null; state.playerToken=null; state.roomHost=false; state.spectating=true; state.mode='spectator';
+      const data=await api(`/api/rooms/${encodeURIComponent(code)}/spectate`); state.room=data.room; state.game=data.state;
+      if(!state.game) throw new Error('В комнате пока нет доступного снимка матча.');
+      setGameScreens(true); showGame(); pollSpectator();
+    } catch(err) { state.spectating=false; showError(err.message); }
+  }
+  async function pollSpectator() {
+    if(!state.spectating||!state.roomCode) return;
+    try { const data=await api(`/api/rooms/${encodeURIComponent(state.roomCode)}/spectate`); if(data.state) {state.game=data.state; if(!$('game-screen').classList.contains('hidden')) renderAll();} }
+    catch(err) { showToast(err.message); stopSpectatorPolling(); }
+    finally { if(state.spectating) state.roomTimer=setTimeout(pollSpectator,3000); }
+  }
+  function stopSpectatorPolling() { if(state.spectating&&state.roomTimer) clearTimeout(state.roomTimer); state.roomTimer=null; state.spectating=false; }
   async function sendOnlineAction(action) {
     if(!state.roomCode||!state.playerId) throw new Error('Сессия комнаты не найдена.');
     const data=await api(`/api/rooms/${encodeURIComponent(state.roomCode)}/action`,{method:'POST',body:{playerId:state.playerId,playerToken:state.playerToken,action}});
@@ -243,7 +320,7 @@
       } catch(err) { $('action-error').textContent=err.message; showToast(err.message); }
     }
   }
-  function saveQuietly() { if(!state.game||state.mode==='online') return; try { localStorage.setItem(LOCAL_SAVE_KEY,JSON.stringify({game:state.game,mode:state.mode,savedAt:Date.now()})); } catch(_) {} }
+  function saveQuietly() { if(!state.game||state.mode==='online'||state.spectating) return; try { localStorage.setItem(LOCAL_SAVE_KEY,JSON.stringify({game:state.game,mode:state.mode,savedAt:Date.now()})); } catch(_) {} }
   function renderAll() {
     if(!state.game) return;
     const game=state.game, viewingId=currentViewingPlayerId(), viewing=E.playerById(game,viewingId), turn=E.playerById(game,game.activePlayer), visibleGame=viewGame();
@@ -251,11 +328,13 @@
     $('game-subtitle').textContent=`${game.mode==='online'?'ОНЛАЙН · ':''}ХОД ${game.turn}`;
     $('turn-badge').textContent=`ХОД ${game.turn}`;
     $('active-player-label').textContent=turn ? `Ход: ${turn.name}` : 'Ход завершён';
-    $('turn-status').textContent=game.over?'Завершено':isMyTurn()?'Ваш ход':'Ожидание';
+    $('turn-status').textContent=state.spectating?'Наблюдение':game.over?'Завершено':isMyTurn()?'Ваш ход':'Ожидание';
     $('end-turn').disabled=!isMyTurn()||state.busy||game.over;
+    $('end-turn').textContent=state.spectating?'Наблюдение':'Завершить ход';
+    $('save-game').disabled=state.spectating||state.mode==='online';
     $('end-turn').innerHTML=state.mode==='local'&&turn&&!turn.isAI&&turn.id!==1?'Передать ход <span aria-hidden="true">→</span>':'Завершить ход <span aria-hidden="true">→</span>';
-    $('turn-tip').textContent=game.over ? (game.winner?`Победитель: ${E.playerById(game,game.winner)?.name||'—'}`:'Партия завершена.') : !isMyTurn() ? (state.mode==='online'?'Ждём действия активного игрока.':'Сейчас ход бота.') : state.mode==='local'&&turn.id!==1?`Передайте устройство игроку «${turn.name}».`:'Собирайте ресурсы, изучайте технологии и захватывайте нейтральные города.';
-    renderPlayers(game,viewingId);
+    $('turn-tip').textContent=game.over ? (game.winner?`Победитель: ${E.playerById(game,game.winner)?.name||'—'}`:'Партия завершена.') : !isMyTurn() ? (state.spectating?'Наблюдение':state.mode==='online'?'Ждём действия активного игрока.':'Сейчас ход бота.') : state.mode==='local'&&turn.id!==1?`Передайте устройство игроку «${turn.name}».`:'Собирайте ресурсы, изучайте технологии и захватывайте нейтральные города.';
+    renderPlayers(state.spectating?game:visibleGame,viewingId);
     renderMap(visibleGame,viewingId);
     renderSelection(visibleGame,viewingId);
     renderTech(game,viewingId);
@@ -273,39 +352,62 @@
     $('player-list').innerHTML=html;
   }
   function tileAccessibleToView(t, viewerId) { return !!t && t.terrain!=='UNKNOWN'; }
+  function spritePath(type) { return state.mapStyle==='pixel' ? `assets/sprites/${type}-pixel.svg` : `assets/sprites/${type}.svg`; }
+  function asciiToken(t, unknown) {
+    if (unknown) return '??';
+    if (t.unit) {
+      const short={WARRIOR:'W',RIDER:'R',ARCHER:'A',DEFENDER:'D',SWORDSMAN:'S',KNIGHT:'K',CATAPULT:'C',MIND_BENDER:'M',GIANT:'G',CLOAK:'X',DAGGER:'d',RAFT:'r',SCOUT_SHIP:'s',RAMMER:'m',BOMBER:'b',JUGGERNAUT:'j'}[t.unit.type]||'?';
+      return `${short}${t.unit.owner}`.slice(0,2);
+    }
+    if (t.city) return `C${t.city.owner||0}`;
+    const base={OCEAN:'~',WATER:'w',PLAIN:'.',FOREST:'T',MOUNTAIN:'^'}[t.terrain]||'?';
+    const second=t.resource?({FRUIT:'f',ANIMAL:'a',FISH:'o',ORE:'v',CROP:'c',WHALE:'w',RUINS:'*'}[t.resource]||'*'):
+      t.building?({FARM:'F',MINE:'M',HUT:'H',PORT:'P',MOUNTAIN_TEMPLE:'T',FOREST_TEMPLE:'T',WATER_TEMPLE:'T',EMBASSY:'E',SAWMILL:'S',FORGE:'F',CUSTOM_HOUSE:'$',ROAD:'R'}[t.building.type]||'B'):t.hasRoad?'R':' ';
+    return `${base}${second}`.slice(0,2);
+  }
+  function unitSprite(type) {
+    return ({WARRIOR:'unit-warrior',RIDER:'unit-rider',ARCHER:'unit-archer',DEFENDER:'unit-defender',SWORDSMAN:'unit-swordsman',KNIGHT:'unit-knight',CATAPULT:'unit-catapult',MIND_BENDER:'unit-mind-bender',GIANT:'unit-giant',CLOAK:'unit-cloak',DAGGER:'unit-dagger',RAFT:'unit-raft',SCOUT_SHIP:'unit-scout-ship',RAMMER:'unit-rammer',BOMBER:'unit-bomber',JUGGERNAUT:'unit-juggernaut'})[type]||'unit-warrior';
+  }
   function renderMap(game, viewerId) {
     const map=$('game-map'); map.classList.remove('view-ascii','view-pixel','view-vector'); map.classList.add(`view-${state.mapStyle}`);
-    map.style.gridTemplateColumns=`repeat(${game.mapSize}, var(--cell-size))`; map.style.setProperty('--cell-size',`${state.zoom}px`);
-    let found=0, explored=0, total=game.mapSize*game.mapSize, html='';
+    let found=0, explored=0, total=game.mapSize*game.mapSize;
     const selected=state.selected;
+    const tileData=[];
     for(let y=0;y<game.mapSize;y++) for(let x=0;x<game.mapSize;x++) {
       const t=game.grid[y][x]; const real=state.game.grid[y][x];
       const isVisible=real.visibleTo&&real.visibleTo.includes(Number(viewerId)); const isExplored=real.exploredBy&&real.exploredBy.includes(Number(viewerId));
       if(isExplored) explored++; if(isVisible) found++;
-      const unknown=t.terrain==='UNKNOWN'; const terrain=unknown?'UNKNOWN':t.terrain;
-      const selectedClass=selected&&selected.x===x&&selected.y===y?'selected':'';
-      const classes=['map-tile',unknown?'fog':`terrain-${terrain.toLowerCase()}`,isVisible?'visible':isExplored?'explored-hidden':'fog',selectedClass,t.city?'tile-city':'',t.hasRoad?'tile-road':'',t.building?'tile-building':''].filter(Boolean).join(' ');
-      const unit=t.unit; const unitOwner=unit&&E.playerById(state.game,unit.owner); const unitColor=unitOwner?.color||'#708278';
-      const cityOwner=t.city && (t.city.owner===0?null:E.playerById(state.game,t.city.owner));
-      const res= !unknown&&t.resource?resourceSymbol[t.resource]||'*':'';
-      let top='';
-      if(state.mapStyle==='ascii') {
-        const base=unknown?'?':(t.city?`C${t.city.owner||'0'}`:E.TERRAIN_INFO[t.terrain]?.glyph||'?');
-        const second=res || (t.building?(buildingShort[t.building.type]||'B'):(t.hasRoad?'R':''));
-        top=`${base}${second||' '}`;
-      } else if(t.city) top=t.city.owner===viewerId?'⌂':t.city.owner===0?'⌂':'⌗';
-      else if(unknown) top='·';
-      else top=terrainSymbol[t.terrain]||'?';
-      const unitLine=unit?`<span class="unit-label" style="--unit-color:${escapeHtml(unitColor)}">${escapeHtml(`${unitGlyph[unit.type]||'?'}`)}${unit.owner}</span>`:'';
-      const title=unknown?`Неизведанная клетка ${x},${y}`:`${E.TERRAIN_INFO[t.terrain]?.label||t.terrain}${t.resource?`, ${E.RESOURCE_INFO[t.resource]?.label||t.resource}`:''}${t.city?`, ${t.city.owner===0?'нейтральный город':`город ${cityOwner?.name||'игрока'}`}`:''}${unit?`, ${E.UNITS[unit.type]?.name||unit.type}`:''} · ${x},${y}`;
-      const resMarkup=state.mapStyle==='ascii'||!res?'':`<span class="tile-resource">${escapeHtml(res)}</span>`;
-      const cityName=t.city&&t.city.owner===viewerId?'tile-city-owned':'';
-      html+=`<button type="button" role="gridcell" aria-label="${escapeHtml(title)}" title="${escapeHtml(title)}" class="${classes} ${cityName}" data-x="${x}" data-y="${y}" ${(!isMyTurn()&&!unknown)?'':''}><span class="tile-topline">${escapeHtml(top)}</span>${resMarkup}<span class="tile-unitline">${unitLine}</span></button>`;
+      const unknown=t.terrain==='UNKNOWN';
+      const classes=['map-tile',unknown?'fog':`terrain-${t.terrain.toLowerCase()}`,isVisible?'visible':isExplored?'explored-hidden':'fog',selected&&selected.x===x&&selected.y===y?'selected':'',t.city?'tile-city':'',t.hasRoad?'tile-road':'',t.building?'tile-building':''].filter(Boolean).join(' ');
+      const title=unknown?`Неизведанная клетка ${x},${y}`:`${E.TERRAIN_INFO[t.terrain]?.label||t.terrain}${t.resource?`, ${E.RESOURCE_INFO[t.resource]?.label||t.resource}`:''}${t.city?', город':''}${t.unit?`, ${E.UNITS[t.unit.type]?.name||t.unit.type}`:''} · ${x},${y}`;
+      tileData.push({x,y,t,unknown,isVisible,isExplored,classes,title});
     }
-    map.innerHTML=html;
-    $('visible-count').textContent=`Открыто ${Math.round(explored/total*100)}% карты`;
+    if(state.mapStyle==='ascii') {
+      map.style.removeProperty('--cell-size'); map.style.gridTemplateColumns='none';
+      map.innerHTML=`<div class="ascii-board" style="grid-template-columns:repeat(${game.mapSize},4ch)">${tileData.map(d=>{
+        const owner=d.t.unit?.owner||d.t.city?.owner; const ownerObj=owner?E.playerById(state.game,owner):null;
+        const token=asciiToken(d.t,d.unknown).padEnd(2,' ');
+        return `<button type="button" role="gridcell" class="ascii-cell ${d.classes}" data-x="${d.x}" data-y="${d.y}" aria-label="${escapeHtml(d.title)}" title="${escapeHtml(d.title)}"><span class="ascii-owner" style="${ownerObj?`color:${escapeHtml(ownerObj.color)}`:''}">[${escapeHtml(token)}]</span></button>`;
+      }).join('')}</div>`;
+    } else {
+      const tileW=Math.max(48,Math.round(state.zoom*2.15)), tileH=Math.max(30,Math.round(state.zoom*1.32));
+      const boardW=game.mapSize*tileW, boardH=game.mapSize*tileH;
+      map.innerHTML=`<div class="iso-board" style="width:${boardW}px;height:${boardH}px;--iso-w:${tileW}px;--iso-h:${tileH}px">${tileData.map(d=>{
+        const t=d.t, owner=t.unit?.owner||t.city?.owner; const ownerObj=owner?E.playerById(state.game,owner):null;
+        const px=(d.x-d.y+game.mapSize-1)*tileW/2, py=(d.x+d.y)*tileH/2;
+        const terrainName=d.unknown?'unknown':String(t.terrain).toLowerCase();
+        let entity='';
+        if(!d.unknown&&t.unit) entity=`<img class="iso-entity unit" src="${spritePath(unitSprite(t.unit.type))}" alt="" loading="lazy">`;
+        else if(!d.unknown&&t.city) entity=`<img class="iso-entity structure" src="${spritePath(t.city.capital&&t.city.owner===viewerId?'building-capital':'building-city')}" alt="" loading="lazy">`;
+        else if(!d.unknown&&t.building) entity=`<img class="iso-entity structure" src="${spritePath('building-'+({'FARM':'farm','MINE':'mine','HUT':'hut','PORT':'port','MOUNTAIN_TEMPLE':'mountain-temple','FOREST_TEMPLE':'forest-temple','WATER_TEMPLE':'water-temple','EMBASSY':'embassy','SAWMILL':'sawmill','FORGE':'forge','CUSTOM_HOUSE':'custom-house'}[t.building.type]||'city'))}" alt="" loading="lazy">`;
+        let resource=''; if(!d.unknown&&t.resource&&!t.unit) resource=`<img class="iso-entity resource" src="${spritePath('resource-'+({FRUIT:'fruit',ANIMAL:'animal',FISH:'fish',ORE:'ore',CROP:'crop',WHALE:'whale',RUINS:'ruins'}[t.resource]||'fruit'))}" alt="" loading="lazy">`;
+        return `<button type="button" role="gridcell" class="iso-tile ${d.classes}" style="left:${px}px;top:${py}px;--unit-color:${escapeHtml(ownerObj?.color||'#d7e3cc')};z-index:${d.x+d.y}" data-x="${d.x}" data-y="${d.y}" aria-label="${escapeHtml(d.title)}" title="${escapeHtml(d.title)}"><img class="iso-ground" src="${spritePath('terrain-'+terrainName)}" alt="" loading="lazy">${t.hasRoad&&!d.unknown?'<span class="road-marker"></span>':''}${resource}${entity}${ownerObj&&t.unit?'<span class="owner-dot"></span>':''}</button>`;
+      }).join('')}</div>`;
+      map.style.gridTemplateColumns='none'; map.style.setProperty('--cell-size',`${state.zoom}px`);
+    }
+    $('visible-count').textContent=state.spectating?`Ход ${game.turn}`:`Открыто ${Math.round(explored/total*100)}% карты`;
     $('map-coordinates').textContent=selected?`x: ${String(selected.x).padStart(2,'0')} · y: ${String(selected.y).padStart(2,'0')}`:'x: — · y: —';
-    $('map-help').textContent=state.targetMode==='move'?'Выберите клетку назначения.':state.targetMode==='attack'?'Выберите вражеский отряд.':state.targetMode==='special'?'Выберите цель специального действия.':isMyTurn()?'Выберите клетку, отряд или город.':'Сейчас ход другого игрока.';
+    $('map-help').textContent=state.spectating?'Режим наблюдателя':state.targetMode==='move'?'Клетка назначения':state.targetMode==='attack'?'Цель атаки':state.targetMode==='special'?'Цель действия':isMyTurn()?'Выберите клетку':'Ход другого игрока';
   }
   function renderSelection(game, viewerId) {
     const s=state.selected; const root=$('selection-details'), actions=$('action-buttons'); $('action-error').textContent='';
@@ -432,7 +534,7 @@
       E.TECHS.filter(t=>t.tier===tier).forEach(t=>{
         const learned=p.techs.includes(t.id), avail=E.legalResearch(state.game,p).some(v=>v.id===t.id), cost=E.techCost(state.game,p,t.id), affordable=p.stars>=cost;
         const req=(t.req||[]).map(id=>E.TECHS.find(x=>x.id===id)?.name||id).join(', ');
-        html+=`<div class="tech-row ${learned?'researched':''}"><div><h3>${escapeHtml(t.name)} ${learned?'✓':''}</h3><p>${escapeHtml(t.desc)}${req&&!learned?` · Нужно: ${escapeHtml(req)}`:''}</p></div><div><div class="tech-cost">${learned?'Изучено':`${cost}★`}</div><button class="secondary-button modal-button" data-tech="${t.id}" ${learned||!avail||!affordable||!isMyTurn()?'disabled':''}>${learned?'Готово':!avail?'Закрыто':'Изучить'}</button></div></div>`;
+        html+=`<div class="tech-row ${learned?'researched':''}"><div><h3>${escapeHtml(t.name)} ${learned?'✓':''}</h3><p>${escapeHtml(t.desc)}${req&&!learned?` · Нужно: ${escapeHtml(req)}`:''}</p><p class="tech-lore">${escapeHtml(t.lore||'')}</p></div><div><div class="tech-cost">${learned?'Изучено':`${cost}★`}</div><button class="secondary-button modal-button" data-tech="${t.id}" ${learned||!avail||!affordable||!isMyTurn()?'disabled':''}>${learned?'Готово':!avail?'Закрыто':'Изучить'}</button></div></div>`;
       }); html+='</div>';
     }
     showModal('Древо технологий',html,'ИССЛЕДОВАНИЯ');
@@ -516,7 +618,7 @@
   $('start-online').addEventListener('click',startOnlineRoom);
   $('copy-room-code').addEventListener('click',()=>{const code=$('room-code').textContent;if(navigator.clipboard?.writeText) navigator.clipboard.writeText(code).then(()=>showToast('Код комнаты скопирован.')).catch(()=>showToast(`Код комнаты: ${code}`));else showToast(`Код комнаты: ${code}`);});
   $('save-game').addEventListener('click',saveLocalGame);
-  $('back-to-menu').addEventListener('click',()=>{saveQuietly();stopRoomPolling();clearWinnerBanner();setGameScreens(false);state.selected=null;state.targetMode=null; if(state.roomCode){$('room-lobby').classList.remove('hidden');$('room-code').textContent=state.roomCode;$('start-game').classList.add('hidden');} else $('start-game').classList.toggle('hidden',state.mode==='online');});
+  $('back-to-menu').addEventListener('click',()=>{const wasSpectating=state.spectating;saveQuietly();stopRoomPolling();stopSpectatorPolling();clearWinnerBanner();setGameScreens(false);state.selected=null;state.targetMode=null; if(wasSpectating){state.mode='online';setMode('online');state.roomCode=null;return;} if(state.roomCode){$('room-lobby').classList.remove('hidden');$('room-code').textContent=state.roomCode;$('start-game').classList.add('hidden');} else $('start-game').classList.toggle('hidden',state.mode==='online');});
   $('end-turn').addEventListener('click',endCurrentTurn);
   $('open-tech-tree').addEventListener('click',openTechTree);
   $('open-diplomacy').addEventListener('click',openDiplomacy);
@@ -527,6 +629,46 @@
   $('zoom-in').addEventListener('click',()=>{state.zoom=Math.min(48,state.zoom+3);if(state.game)renderMap(viewGame(),currentViewingPlayerId());});
   $('zoom-out').addEventListener('click',()=>{state.zoom=Math.max(22,state.zoom-3);if(state.game)renderMap(viewGame(),currentViewingPlayerId());});
   bindMap();
+  function applyInterfaceSettings() {
+    const root=document.documentElement;
+    const preset=localStorage.getItem('strategy-theme')||'forest'; root.dataset.theme=preset;
+    const accent=localStorage.getItem('strategy-accent'); if(accent) root.style.setProperty('--accent',accent);
+    root.dataset.density=localStorage.getItem('strategy-density')||'comfortable';
+    root.dataset.radius=localStorage.getItem('strategy-radius')||'soft';
+    root.dataset.font=localStorage.getItem('strategy-font')||'system';
+    const scale=Number(localStorage.getItem('strategy-scale')||100); root.style.setProperty('--ui-scale',String(scale/100));
+    $('theme-preset').value=preset; $('theme-accent').value=accent||({'forest':'#cfe8a2','midnight':'#a8b7ff','parchment':'#687b3b','ocean':'#70d7cc','plum':'#e1a9ff','contrast':'#ffff00','mono':'#e6e6e6'}[preset]||'#cfe8a2');
+    $('ui-density').value=root.dataset.density; $('ui-radius').value=root.dataset.radius; $('ui-font').value=root.dataset.font; $('ui-scale').value=scale;
+  }
+  function bindInterfaceSettings() {
+    $('site-settings-toggle').addEventListener('click',()=>{const panel=$('site-settings');const open=panel.classList.toggle('hidden')===false;$('site-settings-toggle').setAttribute('aria-expanded',String(open));});
+    $('theme-preset').addEventListener('change',()=>{document.documentElement.dataset.theme=$('theme-preset').value;localStorage.setItem('strategy-theme',$('theme-preset').value);});
+    $('theme-accent').addEventListener('input',()=>{document.documentElement.style.setProperty('--accent',$('theme-accent').value);localStorage.setItem('strategy-accent',$('theme-accent').value);});
+    $('ui-density').addEventListener('change',()=>{document.documentElement.dataset.density=$('ui-density').value;localStorage.setItem('strategy-density',$('ui-density').value);});
+    $('ui-radius').addEventListener('change',()=>{document.documentElement.dataset.radius=$('ui-radius').value;localStorage.setItem('strategy-radius',$('ui-radius').value);});
+    $('ui-font').addEventListener('change',()=>{document.documentElement.dataset.font=$('ui-font').value;localStorage.setItem('strategy-font',$('ui-font').value);});
+    $('ui-scale').addEventListener('input',()=>{document.documentElement.style.setProperty('--ui-scale',String(Number($('ui-scale').value)/100));localStorage.setItem('strategy-scale',$('ui-scale').value);});
+  }
+  function openTribeInfo() {
+    const tribe=tribesById[$('tribe-select').value]; if(!tribe) return;
+    const techNames=(tribe.techs||[]).map(id=>E.TECHS.find(t=>t.id===id)?.name||id).join(', ')||'Нет стартовой технологии';
+    const html=`<div class="tribe-details"><div class="tribe-mark">${escapeHtml(tribe.id.replace(/_/g,' ').slice(0,2))}</div><div><strong>${escapeHtml(tribe.name)}</strong><p>${escapeHtml(tribe.lore||'Описание племени отсутствует.')}</p><p><b>Стиль:</b> ${escapeHtml(tribe.identity||'—')}</p><p><b>Особенность:</b> ${escapeHtml(tribe.bonusText||'—')}</p><p><b>Стартовые технологии:</b> ${escapeHtml(techNames)}</p></div></div>`;
+    showModal(tribe.name,html,'ПЛЕМЯ');
+  }
+  function bindSetupSettings() {
+    $('map-size').addEventListener('change',()=> $('custom-size-field').classList.toggle('hidden',$('map-size').value!=='custom'));
+    $('map-type').addEventListener('change',()=> { const custom=$('map-type').value==='CUSTOM'; $('custom-world-panel').classList.toggle('hidden',!custom); if(custom) $('custom-world').focus(); });
+    $('custom-world-file').addEventListener('change',async e=>{const file=e.target.files?.[0];if(!file)return;try{$('custom-world').value=await file.text();$('map-type').value='CUSTOM';$('custom-world-panel').classList.remove('hidden');const rows=customWorldRows();$('map-size').value='custom';$('custom-size-field').classList.remove('hidden');$('custom-map-size').value=rows.length;}catch(err){showError(err.message);}});
+    $('tribe-info').addEventListener('click',openTribeInfo);
+    $('refresh-rooms').addEventListener('click',refreshPublicRooms);
+    $('pause-room').addEventListener('click',()=>roomControl('pause'));
+    $('resume-room').addEventListener('click',()=>roomControl('resume'));
+    $('replace-player').addEventListener('click',()=>{const field=$('replace-player-field');if(field.classList.contains('hidden'))field.classList.remove('hidden');else roomControl('replace',{targetPlayerId:Number($('replace-player-id').value)});});
+    $('recreate-room').addEventListener('click',()=>roomControl('recreate'));
+    $('close-room').addEventListener('click',()=>roomControl('close'));
+    $('clear-log').addEventListener('click',()=>{$('game-log').innerHTML='';});
+  }
+  bindInterfaceSettings(); bindSetupSettings(); applyInterfaceSettings();
   // Default endpoint is tested immediately; the URL stays read-only until the user presses “Изменить”.
   $('server-address-label').textContent=state.serverUrl;
   $('server-url').value=state.serverUrl;

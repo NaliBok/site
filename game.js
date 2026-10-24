@@ -24,18 +24,18 @@
     RUINS: { glyph: '*', label: 'Руины', tech: 'FREE_DIVING', pop: 0, stars: 5 }
   };
   const TRIBES = [
-    { id: 'IMPERIUS', name: 'Империус', techs: ['ORGANIZATION'], terrain: 'PLAIN' },
-    { id: 'BARDUR', name: 'Бардур', techs: ['HUNTING'], terrain: 'FOREST' },
-    { id: 'OUMAJI', name: 'Оумаджи', techs: ['RIDING'], terrain: 'PLAIN' },
-    { id: 'XIN_XI', name: 'Синь-Си', techs: ['CLIMBING'], terrain: 'MOUNTAIN' },
-    { id: 'KICKOO', name: 'Кикоо', techs: ['FISHING'], terrain: 'WATER' },
-    { id: 'HOODRICK', name: 'Худрик', techs: ['ARCHERY'], terrain: 'FOREST' },
-    { id: 'LUXIDOOR', name: 'Люксидор', techs: [], level: 2, terrain: 'PLAIN' },
-    { id: 'VENGIR', name: 'Венгир', techs: ['SMITHING'], swordsman: true, terrain: 'MOUNTAIN' },
-    { id: 'ZEBASI', name: 'Зебаси', techs: ['FARMING'], terrain: 'PLAIN' },
-    { id: 'AI_MO', name: 'Ай-Мо', techs: ['MEDITATION'], terrain: 'MOUNTAIN' },
-    { id: 'QUETZALI', name: 'Кецали', techs: ['SHIELDS'], terrain: 'FOREST' },
-    { id: 'YADDITH', name: 'Яддит', techs: ['ROADS'], terrain: 'PLAIN' }
+    { id: 'IMPERIUS', name: 'Империус', techs: ['ORGANIZATION'], terrain: 'PLAIN', lore: 'Городская республика с сильной организацией, дорогами и устойчивой экономикой.', identity: 'Порядок и развитие', bonusText: 'Начинает с Организации.' },
+    { id: 'BARDUR', name: 'Бардур', techs: ['HUNTING'], terrain: 'FOREST', lore: 'Северные поселенцы, приспособленные к жизни среди густых лесов и дикой природы.', identity: 'Лес и охота', bonusText: 'Начинает с Охотой; чаще встречаются леса.' },
+    { id: 'OUMAJI', name: 'Оумаджи', techs: ['RIDING'], terrain: 'PLAIN', lore: 'Подвижные кочевники открытых равнин, полагающиеся на скорость и конницу.', identity: 'Скорость и манёвры', bonusText: 'Начинает с Верховой ездой.' },
+    { id: 'XIN_XI', name: 'Синь-Си', techs: ['CLIMBING'], terrain: 'MOUNTAIN', lore: 'Горные мастера, использующие трудный рельеф для защиты и добычи ресурсов.', identity: 'Горы и ремесло', bonusText: 'Начинает со Скалолазанием; чаще встречаются горы.' },
+    { id: 'KICKOO', name: 'Кикоо', techs: ['FISHING'], terrain: 'WATER', lore: 'Морские общины, связанные торговлей, рыболовством и дальними плаваниями.', identity: 'Вода и торговля', bonusText: 'Начинает с Рыболовством.' },
+    { id: 'HOODRICK', name: 'Худрик', techs: ['ARCHERY'], terrain: 'FOREST', lore: 'Лесные лучники, которые предпочитают контролировать поле боя с дистанции.', identity: 'Дальний бой', bonusText: 'Начинает со Стрельбой.' },
+    { id: 'LUXIDOOR', name: 'Люксидор', techs: [], level: 2, terrain: 'PLAIN', lore: 'Богатое государство с развитой столицей и внушительными резервами.', identity: 'Богатство и города', bonusText: 'Столица 2-го уровня и 7 звёзд на старте.' },
+    { id: 'VENGIR', name: 'Венгир', techs: ['SMITHING'], swordsman: true, terrain: 'MOUNTAIN', lore: 'Воинственное племя суровых земель, сделавшее ставку на тяжёлую пехоту.', identity: 'Тяжёлая пехота', bonusText: 'Начинает с Мечником и Кузнечным делом.' },
+    { id: 'ZEBASI', name: 'Зебаси', techs: ['FARMING'], terrain: 'PLAIN', lore: 'Земледельцы плодородных равнин, расширяющие города за счёт пищи и ремесла.', identity: 'Пища и рост', bonusText: 'Начинает с Земледелием.' },
+    { id: 'AI_MO', name: 'Ай-Мо', techs: ['MEDITATION'], terrain: 'MOUNTAIN', lore: 'Горные общины созерцателей, развивающие храмы и технологические знания.', identity: 'Знание и храмы', bonusText: 'Начинает с Медитацией.' },
+    { id: 'QUETZALI', name: 'Кецали', techs: ['SHIELDS'], terrain: 'FOREST', lore: 'Защитники городов и союзов, которые укрепляют позиции перед расширением.', identity: 'Оборона', bonusText: 'Начинает со Щитами.' },
+    { id: 'YADDITH', name: 'Яддит', techs: ['ROADS'], terrain: 'PLAIN', lore: 'Инженерные общины, связывающие поселения дорогами и налаживающие снабжение.', identity: 'Связность и логистика', bonusText: 'Начинает с Дорогами.' }
   ];
   const TECHS = [
     { id: 'ORGANIZATION', name: 'Организация', tier: 1, desc: 'Сбор фруктов. Открывает земледелие и щиты.' },
@@ -63,6 +63,33 @@
     { id: 'PHILOSOPHY', name: 'Философия', tier: 3, req: ['MEDITATION'], desc: 'Снижает стоимость будущих технологий на 33%.' },
     { id: 'DIPLOMACY', name: 'Дипломатия', tier: 3, req: ['MATHEMATICS'], desc: 'Посольства и плащи.' }
   ];
+  const TECH_LORE = {
+    ORGANIZATION: 'Первые советы городов вводят общие правила обмена и распределения припасов.',
+    HUNTING: 'Следопыты читают следы зверей и передают знания о лесах новым поселениям.',
+    RIDING: 'Приручение лошадей превращает большие расстояния в часть повседневной жизни.',
+    FISHING: 'Береговые общины учатся читать приливы и возвращаться с уловом даже в непогоду.',
+    CLIMBING: 'Горные проводники находят безопасные перевалы и открывают путь к рудным жилам.',
+    FARMING: 'Сохранённые семена дают городам надёжные запасы и возможность расти.',
+    SHIELDS: 'Общая школа строя учит отряды закрывать друг друга щитами.',
+    FORESTRY: 'Лесники сочетают бережную рубку с постройкой новых поселений.',
+    ARCHERY: 'Лучники превращают дальность и высоту в преимущество на поле боя.',
+    ROADS: 'Каменные дороги объединяют города, ускоряют отряды и упрощают торговлю.',
+    FREE_DIVING: 'Ныряльщики исследуют затонувшие руины и достают древние находки.',
+    SAILING: 'Корабельщики строят порты и впервые связывают берега регулярными маршрутами.',
+    WHALING: 'Морские команды осваивают дальние промыслы и возвращаются с ценным грузом.',
+    MINING: 'Шахтёры прокладывают штольни к металлам, нужным для крепких орудий и зданий.',
+    MEDITATION: 'Горные обители берегут знания и учат находить пользу в тишине и наблюдении.',
+    MATHEMATICS: 'Расчёты инженеров позволяют строить сложные механизмы и эффективные лесопилки.',
+    TRADE: 'Купеческие союзы согласуют цены и создают сеть постоянного обмена между портами.',
+    SPIRITUALISM: 'Хранители священных рощ восстанавливают леса и возводят места памяти.',
+    CHIVALRY: 'Кавалерийские ордена совершенствуют стремительные удары и прорывы строя.',
+    NAVIGATION: 'Карты звёзд и течений позволяют пересекать океан увереннее и безопаснее.',
+    AQUATISM: 'Морские традиции учат воинов сражаться на воде и строить храмы у побережья.',
+    SMITHING: 'Мастера огня превращают руду в оружие, инструменты и прочные конструкции.',
+    PHILOSOPHY: 'Школы мысли упорядочивают знания и помогают быстрее осваивать новые идеи.',
+    DIPLOMACY: 'Послы, тайные курьеры и договоры влияют на отношения между державами.'
+  };
+  TECHS.forEach(tech => { tech.lore = TECH_LORE[tech.id] || tech.desc; });
   const UNITS = {
     WARRIOR: { name: 'Воин', short: 'W', hp: 10, atk: 2, def: 2, range: 1, move: 1, cost: 2, req: null, domain: 'land' },
     RIDER: { name: 'Всадник', short: 'R', hp: 10, atk: 2, def: 1, range: 1, move: 2, cost: 3, req: 'RIDING', domain: 'land', escape: true },
@@ -136,15 +163,19 @@
       id, name: String(cfg.name || (isAIDefault ? `Бот ${id}` : `Игрок ${id}`)).slice(0, 22), tribe: tribe.id, tribeName: tribe.name,
       color: cfg.color || ['#d6a45d','#68b8a5','#a59be7','#e77c75','#80a7d9','#c7b85c','#cc91b5','#8aa76a'][((id-1)%8)],
       isAI: cfg.isAI === undefined ? !!isAIDefault : !!cfg.isAI, connected: cfg.connected !== false,
-      stars: 5, spt: 0, score: 0, techs: [...tribe.techs], monuments: [], relations: {}, alive: true,
+      aiType: cfg.aiType || 'BALANCED', difficulty: cfg.difficulty || 'NORMAL',
+      stars: cfg.isAI && cfg.difficulty === 'HARD' ? 7 : cfg.isAI && cfg.difficulty === 'EASY' ? 3 : 5, spt: 0, score: 0, techs: [...tribe.techs], monuments: [], relations: {}, alive: true,
       cities: 0, unitsBuilt: 0, passiveSpt: 0, turnsWithoutAttack: 0, tribesEliminated: 0, pendingMonuments: []
     };
   }
   function createGame(options) {
     options = options || {};
-    const size = Number(options.mapSize || 16);
-    const validSizes = [11,14,16,19,22,30];
-    const n = validSizes.includes(size) ? size : 16;
+    const requestedSize = Number(options.mapSize || 16);
+    const customRows = Array.isArray(options.customWorld) ? options.customWorld.map(row => String(row)) : null;
+    const inferredSize = customRows && customRows.length >= 7 && customRows.length <= 60 && customRows.every(row => row.length === customRows.length) ? customRows.length : requestedSize;
+    const n = Math.max(7, Math.min(60, Number.isFinite(inferredSize) ? Math.floor(inferredSize) : 16));
+    const mapType = ['ISLANDS','CONTINENT','PANGAEA','LAKES','ARCHIPELAGO','CUSTOM'].includes(options.mapType) ? options.mapType : 'CONTINENT';
+    const customTerrain = { '~': TERRAIN.OCEAN, 'w': TERRAIN.WATER, '.': TERRAIN.PLAIN, 'T': TERRAIN.FOREST, '^': TERRAIN.MOUNTAIN, ' ': TERRAIN.PLAIN };
     const configs = Array.isArray(options.players) && options.players.length ? options.players : [
       { name: options.name || 'Игрок 1', tribe: options.tribe || 'IMPERIUS', isAI: false },
       { name: 'Бот 2', tribe: 'BARDUR', isAI: true },
@@ -167,15 +198,29 @@
     const players = configs.slice(0,8).map((cfg,i)=>makePlayer(i+1,cfg, i>0));
     const tribeSet = new Set();
     players.forEach((p,i)=> { if(tribeSet.has(p.tribe)){ const next=TRIBES.find(t=>!tribeSet.has(t.id)); if(next){p.tribe=next.id;p.tribeName=next.name;p.techs=[...next.techs];} } tribeSet.add(p.tribe); });
-    const state = { turn: 1, activePlayer: players[0].id, gameMode: options.gameMode || 'DOMINATION', mapSize: n, seed, players,
-      grid: Array.from({length:n},(_,y)=>Array.from({length:n},(_,x)=> {
+    const state = { turn: 1, activePlayer: players[0].id, gameMode: options.gameMode || 'DOMINATION', scoreToWin: Number(options.scoreToWin)||5000, mapSize: n, mapType, seed, players,
+      knownTribesByPlayer: {}, grid: Array.from({length:n},(_,y)=>Array.from({length:n},(_,x)=> {
         const v=smooth[y][x]; let terrain;
-        if(v < 0.29) terrain=TERRAIN.OCEAN; else if(v < 0.39) terrain=TERRAIN.WATER;
-        else if(v < 0.49) terrain=TERRAIN.PLAIN; else if(v < 0.67) terrain=TERRAIN.FOREST; else if(v < 0.79) terrain=TERRAIN.MOUNTAIN; else terrain=TERRAIN.PLAIN;
+        if (mapType === 'PANGAEA') {
+          if(v < 0.17) terrain=TERRAIN.OCEAN; else if(v < 0.24) terrain=TERRAIN.WATER; else if(v < 0.50) terrain=TERRAIN.PLAIN; else if(v < 0.72) terrain=TERRAIN.FOREST; else if(v < 0.83) terrain=TERRAIN.MOUNTAIN; else terrain=TERRAIN.PLAIN;
+        } else if (mapType === 'ISLANDS' || mapType === 'ARCHIPELAGO') {
+          if(v < (mapType === 'ARCHIPELAGO' ? 0.43 : 0.36)) terrain=TERRAIN.OCEAN; else if(v < 0.47) terrain=TERRAIN.WATER; else if(v < 0.58) terrain=TERRAIN.PLAIN; else if(v < 0.74) terrain=TERRAIN.FOREST; else if(v < 0.84) terrain=TERRAIN.MOUNTAIN; else terrain=TERRAIN.PLAIN;
+        } else {
+          if(v < 0.29) terrain=TERRAIN.OCEAN; else if(v < 0.39) terrain=TERRAIN.WATER; else if(v < 0.49) terrain=TERRAIN.PLAIN; else if(v < 0.67) terrain=TERRAIN.FOREST; else if(v < 0.79) terrain=TERRAIN.MOUNTAIN; else terrain=TERRAIN.PLAIN;
+        }
+        if (customRows && customRows[y] && mapType === 'CUSTOM') terrain = customTerrain[customRows[y][x]] || TERRAIN.PLAIN;
         return createTile(x,y,terrain);
       })), log: [], winner: null, over: false, createdAt: Date.now(), nextUnitId: 1, nextCityId: 1, lastAction: null };
-    // Keep broad islands and a traversable inner belt so that the opening is playable.
-    for(let y=1;y<n-1;y++) for(let x=1;x<n-1;x++) if(state.grid[y][x].terrain===TERRAIN.OCEAN && rng()<0.24) state.grid[y][x].terrain=TERRAIN.WATER;
+    // Map profiles alter the whole land/water distribution before starting locations are placed.
+    if (mapType === 'LAKES') {
+      for(let y=1;y<n-1;y++) for(let x=1;x<n-1;x++) if(state.grid[y][x].terrain===TERRAIN.PLAIN && rng()<0.13) state.grid[y][x].terrain=TERRAIN.WATER;
+    }
+    if (mapType === 'PANGAEA') {
+      for(let y=1;y<n-1;y++) for(let x=1;x<n-1;x++) if(state.grid[y][x].terrain===TERRAIN.OCEAN && rng()<0.72) state.grid[y][x].terrain=TERRAIN.PLAIN;
+    }
+    if (mapType !== 'CUSTOM' && mapType !== 'ARCHIPELAGO') {
+      for(let y=1;y<n-1;y++) for(let x=1;x<n-1;x++) if(state.grid[y][x].terrain===TERRAIN.OCEAN && rng()<0.24) state.grid[y][x].terrain=TERRAIN.WATER;
+    }
     const used=[]; const minGap=Math.max(3,n/(players.length+1));
     players.forEach((p,i)=> {
       const angle=(Math.PI*2*i/players.length)-Math.PI/2;
@@ -233,6 +278,16 @@
       for(const s of sources) for(let y=Math.max(0,s.y-s.r);y<=Math.min(state.mapSize-1,s.y+s.r);y++) for(let x=Math.max(0,s.x-s.r);x<=Math.min(state.mapSize-1,s.x+s.r);x++) {
         const t=state.grid[y][x]; if(Math.max(Math.abs(x-s.x),Math.abs(y-s.y))<=s.r) { if(!t.exploredBy.includes(p.id)) t.exploredBy.push(p.id); if(!t.visibleTo.includes(p.id)) t.visibleTo.push(p.id); }
       }
+    }
+    if (!state.knownTribesByPlayer) state.knownTribesByPlayer = {};
+    for (const viewer of state.players) {
+      const known = new Set(state.knownTribesByPlayer[viewer.id] || [viewer.id]); known.add(viewer.id);
+      for (const row of state.grid) for (const t of row) {
+        if (!t.visibleTo.includes(viewer.id)) continue;
+        const owner = t.unit?.owner || (t.city && t.city.owner > 0 ? t.city.owner : 0);
+        if (owner && owner !== viewer.id) known.add(owner);
+      }
+      state.knownTribesByPlayer[viewer.id] = [...known];
     }
   }
   function cityYield(city) { return Number(city.level || 1) + Number(city.bonusSpt || 0); }
@@ -378,6 +433,10 @@
   function allCityOwnersAlive(state) { return state.players.filter(p=>p.alive && citiesOf(state,p.id).length>0); }
   function checkVictory(state) {
     const alive=allCityOwnersAlive(state);
+    if(state.gameMode==='SCORE') {
+      const ranked=state.players.filter(p=>p.alive).slice().sort((a,b)=>b.score-a.score);
+      if(ranked[0] && ranked[0].score>=Number(state.scoreToWin||5000)) { state.over=true; state.winner=ranked[0].id; addLog(state,`${ranked[0].name} побеждает по очкам!`); return; }
+    }
     if(alive.length<=1 && state.players.length>1) { state.over=true; state.winner=alive[0]?alive[0].id:null; addLog(state,state.winner?`${playerById(state,state.winner).name} побеждает!`:'Игра завершена без победителя.'); }
   }
   function performAction(state, playerId, action) {
@@ -558,10 +617,16 @@
   function getPlayerView(state, playerId) {
     const p=playerById(state,playerId); if(!p) throw new Error('Игрок не найден.');
     const copy=clone(state);
+    const known = new Set((state.knownTribesByPlayer && state.knownTribesByPlayer[playerId]) || [Number(playerId)]);
+    for (const other of copy.players) {
+      if (other.id !== Number(playerId) && !known.has(other.id)) {
+        other.tribe = 'UNKNOWN'; other.tribeName = 'Неизвестное племя'; other.techs = []; other.lore = null;
+      }
+    }
     for(let y=0;y<copy.grid.length;y++) for(let x=0;x<copy.grid[y].length;x++) {
       const t=copy.grid[y][x]; const original=state.grid[y][x];
       if(!original.exploredBy.includes(Number(playerId))) { t.terrain='UNKNOWN'; t.resource=null; t.hasRoad=false; t.building=null; t.city=null; t.unit=null; }
-      else if(!original.visibleTo.includes(Number(playerId))) { t.unit=null; t.visibleTo=[]; }
+      else if(!original.visibleTo.includes(Number(playerId))) { t.unit=null; t.city=null; t.visibleTo=[]; }
       // Cloaks stay hidden unless the viewer owns the unit or is adjacent to it.
       if(t.unit&&t.unit.hidden&&t.unit.owner!==Number(playerId)) {
         const adjacent=neighbors(state,x,y,true).some(n=>n.visibleTo.includes(Number(playerId))&&(n.unit&&n.unit.owner===Number(playerId)));
@@ -612,7 +677,7 @@
     // Train affordable units from cities with spare capacity.
     for(const ct of citiesOf(state,p.id)) {
       if(countUnitsForCity(state,ct.city.id)>=ct.city.level) continue;
-      const types=['WARRIOR','RIDER','ARCHER','DEFENDER','SWORDSMAN']; const type=types.map(id=>({id,def:UNITS[id]})).filter(o=>(!o.def.req||hasTech(p,o.def.req))&&p.stars>=o.def.cost).sort((a,b)=>b.def.atk-a.def.atk)[0];
+      const types=p.aiType==='ECONOMY'?['DEFENDER','ARCHER','WARRIOR','RIDER','SWORDSMAN']:p.aiType==='EXPANSION'?['RIDER','WARRIOR','ARCHER','SWORDSMAN','DEFENDER']:p.aiType==='WAR'?['SWORDSMAN','KNIGHT','WARRIOR','RIDER','ARCHER','DEFENDER']:['WARRIOR','RIDER','ARCHER','DEFENDER','SWORDSMAN','KNIGHT']; const type=types.map(id=>({id,def:UNITS[id]})).filter(o=>o.def&&(!o.def.req||hasTech(p,o.def.req))&&p.stars>=o.def.cost).sort((a,b)=>b.def.atk-a.def.atk)[0];
       if(type) act({type:'train',x:ct.x,y:ct.y,unitType:type.id});
     }
     // Keep city economy current, then finish the turn.

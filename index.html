@@ -4,110 +4,137 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#171b1a">
-  <meta name="description" content="Минималистичная пошаговая стратегия на процедурной карте.">
   <title>Стратегия</title>
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <div class="app-shell">
-    <header class="topbar">
-      <div class="mark" aria-hidden="true">◆</div>
-      <div class="topbar-kicker">ПОШАГОВАЯ СТРАТЕГИЯ</div>
-      <div class="topbar-spacer"></div>
-      <div class="connection-pill" id="connection-pill"><span class="status-dot"></span><span id="connection-label">Не подключено</span></div>
-    </header>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="topbar-spacer"></div>
+    <button id="site-settings-toggle" class="secondary-button" type="button" aria-expanded="false">Интерфейс</button>
+    <div class="connection-pill" id="connection-pill"><span class="status-dot"></span><span id="connection-label">Локальная игра</span></div>
+  </header>
 
-    <main>
-      <section id="setup-screen" class="setup-layout">
-        <div class="intro-block">
-          <div class="eyebrow">МИР · ТЕХНОЛОГИИ · ТАКТИКА</div>
-          <h1>Каждый ход меняет карту.</h1>
-          <p>Исследуйте земли, основывайте города, изучайте технологии и расширяйте границы. Играйте против ботов, по очереди на одном устройстве или через сервер.</p>
-          <div class="intro-art" aria-hidden="true">
-            <span class="art-water">≈ ≈ ≈</span><span class="art-mountain">▲ ▲</span><span class="art-forest">♣ ♣ ♣</span><span class="art-city">▥</span><span class="art-star">✦</span>
-          </div>
-          <div class="feature-row">
-            <span><b>01</b> Туман войны</span><span><b>02</b> 12 племён</span><span><b>03</b> 3 стиля карты</span>
-          </div>
+  <main>
+    <section id="site-settings" class="panel site-settings hidden" aria-label="Настройки интерфейса">
+      <div class="settings-grid">
+        <label class="field"><span>Тема сайта</span><select id="theme-preset"><option value="forest">Лесная</option><option value="midnight">Ночная</option><option value="parchment">Пергамент</option><option value="ocean">Океан</option><option value="plum">Сумерки</option><option value="contrast">Высокий контраст</option><option value="mono">Монохром</option></select></label>
+        <label class="field"><span>Акцент</span><input id="theme-accent" type="color" value="#cfe8a2"></label>
+        <label class="field"><span>Плотность</span><select id="ui-density"><option value="comfortable">Обычная</option><option value="compact">Компактная</option><option value="spacious">Свободная</option></select></label>
+        <label class="field"><span>Скругление</span><select id="ui-radius"><option value="sharp">Угловатое</option><option value="soft">Мягкое</option><option value="round">Круглое</option></select></label>
+        <label class="field"><span>Шрифт</span><select id="ui-font"><option value="system">Системный</option><option value="mono">Моноширинный</option><option value="serif">С засечками</option></select></label>
+        <label class="field"><span>Размер интерфейса</span><input id="ui-scale" type="range" min="85" max="120" value="100" step="5"></label>
+      </div>
+    </section>
+
+    <section id="setup-screen" class="setup-layout">
+      <div class="setup-card panel">
+        <div class="mode-switch" role="tablist" aria-label="Режим игры">
+          <button class="mode-tab active" data-mode="bots" role="tab" aria-selected="true">Боты</button>
+          <button class="mode-tab" data-mode="local" role="tab" aria-selected="false">Одно устройство</button>
+          <button class="mode-tab" data-mode="online" role="tab" aria-selected="false">Онлайн</button>
         </div>
 
-        <div class="setup-card">
-          <div class="section-heading"><div><div class="eyebrow">НОВАЯ ПАРТИЯ</div><h2>Настройка игры</h2></div><span class="section-index">01 / 03</span></div>
-          <div class="mode-switch" role="tablist" aria-label="Режим игры">
-            <button class="mode-tab active" data-mode="bots" role="tab" aria-selected="true">Против ботов</button>
-            <button class="mode-tab" data-mode="local" role="tab" aria-selected="false">Одно устройство</button>
-            <button class="mode-tab" data-mode="online" role="tab" aria-selected="false">Онлайн</button>
-          </div>
+        <div class="field-grid">
+          <label class="field"><span>Имя игрока</span><input id="player-name" maxlength="22" value="Игрок 1" autocomplete="nickname"></label>
+          <label class="field"><span>Ваше племя</span><select id="tribe-select"></select><button id="tribe-info" class="text-button align-left" type="button">Лор и особенности</button></label>
+          <label class="field"><span>Размер карты</span><select id="map-size"><option value="11">11 × 11</option><option value="14">14 × 14</option><option value="16" selected>16 × 16</option><option value="19">19 × 19</option><option value="22">22 × 22</option><option value="30">30 × 30</option><option value="custom">Нестандартный</option></select></label>
+          <label class="field hidden" id="custom-size-field"><span>Свой размер (7–60)</span><input id="custom-map-size" type="number" min="7" max="60" value="24"></label>
+          <label class="field"><span>Тип мира</span><select id="map-type"><option value="CONTINENT">Континенты</option><option value="ISLANDS">Острова</option><option value="ARCHIPELAGO">Архипелаг</option><option value="PANGAEA">Одна большая суша</option><option value="LAKES">Материки с озёрами</option><option value="CUSTOM">Свой мир</option></select></label>
+          <label class="field"><span>Победа</span><select id="victory-mode"><option value="DOMINATION">Завоевание</option><option value="SCORE">Очки</option></select></label>
+          <label class="field" id="opponents-field"><span>Количество ботов</span><select id="bot-count"><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option></select></label>
+          <label class="field" id="bot-style-field"><span>Стиль ботов</span><select id="bot-style"><option value="BALANCED">Сбалансированный</option><option value="EXPANSION">Экспансия</option><option value="ECONOMY">Экономика</option><option value="WAR">Война</option></select></label>
+          <label class="field" id="bot-difficulty-field"><span>Сложность ботов</span><select id="bot-difficulty"><option value="EASY">Лёгкая</option><option value="NORMAL" selected>Обычная</option><option value="HARD">Сложная</option></select></label>
+          <label class="field hidden" id="local-count-field"><span>Игроков за устройством</span><select id="local-count"><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option></select></label>
+          <label class="field hidden" id="local-bot-count-field"><span>Дополнительные боты</span><select id="local-bot-count"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3" selected>3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option></select></label>
+          <label class="field"><span>Запретить племена</span><select id="banned-tribes" multiple size="4" aria-label="Запрещённые племена"></select></label>
+          <label class="field"><span>Зерно генерации</span><input id="world-seed" type="number" placeholder="Случайное"></label>
+        </div>
 
+        <div id="custom-world-panel" class="panel inset-panel hidden">
           <div class="field-grid">
-            <label class="field"><span>Ваше имя</span><input id="player-name" maxlength="22" value="Игрок 1" autocomplete="nickname" placeholder="Введите имя"></label>
-            <label class="field"><span>Племя</span><select id="tribe-select"></select></label>
-            <label class="field"><span>Размер карты</span><select id="map-size"><option value="11">Крошечная · 11×11</option><option value="14">Маленькая · 14×14</option><option value="16" selected>Средняя · 16×16</option><option value="19">Большая · 19×19</option><option value="22">Огромная · 22×22</option><option value="30">Массивная · 30×30</option></select></label>
-            <label class="field" id="opponents-field"><span>Соперники-боты</span><select id="bot-count"><option value="1">1 бот</option><option value="2">2 бота</option><option value="3" selected>3 бота</option><option value="4">4 бота</option><option value="5">5 ботов</option><option value="6">6 ботов</option><option value="7">7 ботов</option></select></label>
-            <label class="field hidden" id="local-count-field"><span>Локальные игроки</span><select id="local-count"><option value="2">2 игрока</option><option value="3">3 игрока</option><option value="4">4 игрока</option></select></label>
+            <label class="field span-2"><span>Свой мир · строки равной длины</span><textarea id="custom-world" rows="5" spellcheck="false" placeholder="~~~~~~~~~~\n~..TT..^.~\n~.T..f...~\n~....^^..~\n~~~~~~~~~~"></textarea></label>
+            <label class="field span-2"><span>Загрузить JSON или TXT</span><input id="custom-world-file" type="file" accept=".json,.txt,.map,application/json,text/plain"></label>
           </div>
+          <div class="symbol-legend">`~` океан · `w` мелководье · `.` равнина · `T` лес · `^` гора · ` ` равнина</div>
+        </div>
 
-          <div class="server-settings hidden" id="online-settings">
+        <section id="online-settings" class="online-settings hidden">
+          <div class="settings-grid">
+            <label class="field"><span>Имя комнаты</span><input id="room-name" maxlength="40" value="Новая партия"></label>
+            <label class="field"><span>Видимость</span><select id="room-privacy"><option value="PUBLIC">Публичная</option><option value="PRIVATE">Приватная, только по коду</option></select></label>
+            <label class="field"><span>Игроков максимум</span><select id="room-max-players"><option>2</option><option>3</option><option selected>4</option><option>5</option><option>6</option><option>7</option><option>8</option></select></label>
+            <label class="field"><span>Время хода (сек.)</span><select id="room-turn-time"><option value="0">Без лимита</option><option value="60">60</option><option value="120" selected>120</option><option value="180">180</option><option value="300">300</option><option value="600">600</option></select></label>
+            <label class="field"><span>Зрители</span><select id="room-spectators"><option value="yes" selected>Разрешены</option><option value="no">Запрещены</option></select></label>
+            <label class="field"><span>Задержка зрителей (ходов)</span><select id="room-spectator-delay"><option>0</option><option>1</option><option>2</option><option>3</option><option>5</option><option>10</option></select></label>
+            <label class="field"><span>При выходе игрока</span><select id="room-replace-policy"><option value="ASK">Решение хоста</option><option value="BOT" selected>Заменить ботом</option><option value="WAIT">Ждать возвращения</option></select></label>
+            <label class="field"><span>Пауза комнаты</span><select id="room-allow-pause"><option value="yes" selected>Разрешена хосту</option><option value="no">Запрещена</option></select></label>
+          </div>
+          <div class="server-settings">
             <div class="server-row"><div><span class="field-label">Сервер</span><strong id="server-address-label">https://nbwsb.onrender.com</strong></div><button id="edit-server" class="text-button" type="button">Изменить</button></div>
             <div class="server-edit hidden" id="server-edit-row"><input id="server-url" type="url" value="https://nbwsb.onrender.com" aria-label="Адрес сервера"><button id="save-server" class="small-button" type="button">Сохранить</button></div>
             <div class="server-row server-status-row"><span>Статус / ping</span><span id="server-ping" class="ping-state">Проверка…</span></div>
-            <p class="helper-text">Откройте комнату и отправьте её код другим игрокам. Все участники должны использовать один и тот же адрес сервера.</p>
-            <div id="room-lobby" class="room-lobby hidden">
-              <div class="room-code-wrap hidden"><span class="field-label">Код комнаты</span><strong id="room-code">------</strong><button id="copy-room-code" class="text-button" type="button">Копировать</button></div>
-              <div id="room-players" class="room-players"></div>
-              <div class="room-actions"><button id="join-room" class="secondary-button" type="button">Войти по коду</button><button id="start-online" class="primary-button hidden" type="button" disabled>Начать матч</button></div>
-              <label class="field hidden" id="join-code-field"><span>Код комнаты</span><input id="join-code" maxlength="6" placeholder="например, A2B4C6"></label>
-            </div>
           </div>
+          <div class="rooms-heading"><span>Публичные комнаты</span><button id="refresh-rooms" class="text-button" type="button">Обновить</button></div>
+          <div id="public-room-list" class="public-room-list"><div class="muted-label">Загрузка списка…</div></div>
+          <div id="room-lobby" class="room-lobby hidden">
+            <div class="room-code-wrap hidden"><div><span class="field-label">Код комнаты</span><strong id="room-code">------</strong></div><button id="copy-room-code" class="text-button" type="button">Копировать код</button></div>
+            <div id="room-players" class="room-players"></div>
+            <div class="room-actions"><button id="join-room" class="secondary-button" type="button">Войти по коду</button><button id="start-online" class="primary-button hidden" type="button" disabled>Начать матч</button></div>
+            <label class="field hidden" id="join-code-field"><span>Код комнаты</span><input id="join-code" maxlength="6" placeholder="Код комнаты"></label>
+            <div class="room-admin-actions hidden" id="room-admin-actions">
+              <button id="pause-room" class="secondary-button" type="button">Пауза</button><button id="resume-room" class="secondary-button hidden" type="button">Возобновить</button><button id="replace-player" class="secondary-button" type="button">Заменить игрока ботом</button><button id="recreate-room" class="secondary-button" type="button">Пересоздать партию</button><button id="close-room" class="danger-button" type="button">Закрыть комнату</button>
+            </div>
+            <label class="field hidden" id="replace-player-field"><span>Игрок для замены</span><select id="replace-player-id"></select></label>
+          </div>
+        </section>
 
-          <div class="setup-footer"><div class="small-note"><span class="ready-dot"></span><span id="mode-note">Локальное сохранение включено</span></div><button id="start-game" class="primary-button" type="button">Начать партию <span aria-hidden="true">↗</span></button></div>
-          <div class="setup-error" id="setup-error" role="alert"></div>
+        <div class="setup-footer">
+          <div class="small-note"><span class="ready-dot"></span><span id="mode-note">Локальное сохранение</span></div>
+          <button id="start-game" class="primary-button" type="button">Начать партию</button>
         </div>
-      </section>
+        <div class="setup-error" id="setup-error" role="alert"></div>
+      </div>
+    </section>
 
-      <section id="game-screen" class="game-screen hidden">
-        <div class="game-topline">
-          <div><div class="eyebrow" id="game-subtitle">ПАРТИЯ · ХОД 1</div><h1 id="game-heading">Карта мира</h1></div>
-          <div class="game-top-actions"><button id="save-game" class="secondary-button" type="button">Сохранить</button><button id="back-to-menu" class="text-button" type="button">В меню ↗</button></div>
-        </div>
-        <div class="game-layout">
-          <aside class="left-panel panel">
-            <div class="panel-heading"><span>УЧАСТНИКИ</span><span id="turn-badge" class="turn-badge">ХОД 1</span></div>
-            <div id="player-list" class="player-list"></div>
-            <button id="open-diplomacy" class="secondary-button full-width diplomacy-open" type="button">Дипломатия и отношения</button>
-            <div class="panel-separator"></div>
-            <div class="panel-heading"><span>КАРТА</span><span class="muted-label" id="map-dimension">16 × 16</span></div>
-            <div class="style-switch" aria-label="Стиль карты"><button data-style="ascii" class="style-button" type="button">ASCII</button><button data-style="pixel" class="style-button active" type="button">Пиксель</button><button data-style="vector" class="style-button" type="button">Вектор</button></div>
-            <div class="map-legend"><span><i class="legend-square plain"></i> Равнина</span><span><i class="legend-square forest"></i> Лес</span><span><i class="legend-square mountain"></i> Гора</span><span><i class="legend-square water"></i> Вода</span><span><i class="legend-square fog"></i> Туман</span></div>
-            <div class="panel-separator"></div>
-            <div class="panel-heading"><span>ВАШ ГОРОД</span><span id="city-count" class="muted-label">0 городов</span></div>
-            <div id="empire-summary" class="empire-summary"><div class="muted-label">Выберите клетку на карте.</div></div>
-          </aside>
+    <section id="game-screen" class="game-screen hidden">
+      <div class="game-topline" id="game-topline">
+        <div><div class="eyebrow" id="game-subtitle"></div><h1 id="game-heading" class="visually-hidden"></h1></div>
+        <div class="game-top-actions"><button id="save-game" class="secondary-button" type="button">Сохранить</button><button id="back-to-menu" class="text-button" type="button">Меню</button></div>
+      </div>
+      <div class="game-layout">
+        <aside class="left-panel panel">
+          <div class="panel-heading"><span>Игроки</span><span id="turn-badge" class="turn-badge">ХОД 1</span></div>
+          <div id="player-list" class="player-list"></div>
+          <button id="open-diplomacy" class="secondary-button full-width diplomacy-open" type="button">Отношения</button>
+          <div class="panel-separator"></div>
+          <div class="panel-heading"><span>Карта</span><span class="muted-label" id="map-dimension">16 × 16</span></div>
+          <div class="style-switch" aria-label="Стиль карты"><button data-style="ascii" class="style-button" type="button">ASCII</button><button data-style="pixel" class="style-button active" type="button">Пиксель</button><button data-style="vector" class="style-button" type="button">Вектор</button></div>
+          <div class="map-legend"><span><i class="legend-square plain"></i> Равнина</span><span><i class="legend-square forest"></i> Лес</span><span><i class="legend-square mountain"></i> Гора</span><span><i class="legend-square water"></i> Вода</span><span><i class="legend-square fog"></i> Туман</span></div>
+          <div class="panel-separator"></div>
+          <div class="panel-heading"><span>Империя</span><span id="city-count" class="muted-label">0</span></div>
+          <div id="empire-summary" class="empire-summary"></div>
+        </aside>
 
-          <section class="map-panel panel">
-            <div class="map-toolbar"><div><span class="live-dot"></span><span id="active-player-label">Ход игрока</span></div><div class="map-toolbar-right"><span id="map-coordinates">x: — · y: —</span><button id="zoom-out" type="button" aria-label="Уменьшить карту">−</button><button id="zoom-in" type="button" aria-label="Увеличить карту">+</button></div></div>
-            <div class="map-scroll" id="map-scroll"><div id="game-map" class="game-map view-pixel" role="grid" aria-label="Игровая карта"></div></div>
-            <div class="map-footer"><span id="map-help">Выберите свой отряд, затем клетку назначения.</span><span id="visible-count">Открыто 0% карты</span></div>
-          </section>
+        <section class="map-panel panel">
+          <div class="map-toolbar"><div><span class="live-dot"></span><span id="active-player-label"></span></div><div class="map-toolbar-right"><span id="map-coordinates">x: — · y: —</span><button id="zoom-out" type="button" aria-label="Уменьшить карту">−</button><button id="zoom-in" type="button" aria-label="Увеличить карту">+</button></div></div>
+          <div class="map-scroll" id="map-scroll"><div id="game-map" class="game-map view-pixel" role="grid" aria-label="Игровая карта"></div></div>
+          <div class="map-footer"><span id="map-help"></span><span id="visible-count"></span></div>
+        </section>
 
-          <aside class="right-panel">
-            <section class="panel selection-panel"><div class="panel-heading"><span>ВЫБРАННАЯ КЛЕТКА</span><span id="selected-coords" class="muted-label">—</span></div><div id="selection-details" class="selection-details"><div class="empty-selection"><span class="empty-glyph">⌖</span><strong>Ничего не выбрано</strong><p>Нажмите на клетку карты, чтобы увидеть сведения и действия.</p></div></div><div id="action-buttons" class="action-buttons"></div><div id="action-error" class="inline-error"></div></section>
-            <section class="panel turn-panel"><div class="panel-heading"><span>ВАШ ХОД</span><span id="turn-status" class="muted-label">В процессе</span></div><p id="turn-tip">Собирайте ресурсы и развивайте столицу.</p><button id="end-turn" class="primary-button full-width" type="button">Завершить ход <span aria-hidden="true">→</span></button></section>
-            <section class="panel tech-panel"><div class="panel-heading"><span>ТЕХНОЛОГИИ</span><button id="open-tech-tree" class="text-button" type="button">Все ↗</button></div><div id="tech-summary" class="tech-summary"></div></section>
-            <section class="panel log-panel"><div class="panel-heading"><span>ЖУРНАЛ</span><span class="muted-label">последние события</span></div><div id="game-log" class="game-log" aria-live="polite"></div></section>
-          </aside>
-        </div>
-      </section>
-    </main>
-    <footer class="site-footer"><span>Пошаговая стратегия · процедурный мир</span><span>GitHub Pages <i>×</i> Render</span></footer>
-  </div>
+        <aside class="right-panel">
+          <section class="panel selection-panel"><div class="panel-heading"><span>Клетка</span><span id="selected-coords" class="muted-label">—</span></div><div id="selection-details" class="selection-details"></div><div id="action-buttons" class="action-buttons"></div><div id="action-error" class="inline-error"></div></section>
+          <section class="panel turn-panel"><div class="panel-heading"><span>Ход</span><span id="turn-status" class="muted-label">В процессе</span></div><p id="turn-tip"></p><button id="end-turn" class="primary-button full-width" type="button">Завершить ход</button></section>
+          <section class="panel tech-panel"><div class="panel-heading"><span>Технологии</span><button id="open-tech-tree" class="text-button" type="button">Открыть</button></div><div id="tech-summary" class="tech-summary"></div></section>
+          <section class="panel log-panel"><div class="panel-heading"><span>Журнал</span><button id="clear-log" class="text-button" type="button">Очистить</button></div><div id="game-log" class="game-log" aria-live="polite"></div></section>
+        </aside>
+      </div>
+    </section>
+  </main>
+</div>
 
-  <div id="modal-backdrop" class="modal-backdrop hidden" role="presentation">
-    <section id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-header"><div><div class="eyebrow" id="modal-eyebrow">УПРАВЛЕНИЕ</div><h2 id="modal-title">Действие</h2></div><button id="close-modal" class="close-button" type="button" aria-label="Закрыть">×</button></div><div id="modal-content" class="modal-content"></div></section>
-  </div>
-
-  <div id="toast" class="toast" role="status" aria-live="polite"></div>
-  <script src="game.js"></script>
-  <script src="client.js"></script>
+<div id="modal-backdrop" class="modal-backdrop hidden" role="presentation"><section id="modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div class="modal-header"><div><div class="eyebrow" id="modal-eyebrow"></div><h2 id="modal-title">Действие</h2></div><button id="close-modal" class="close-button" type="button" aria-label="Закрыть">×</button></div><div id="modal-content" class="modal-content"></div></section></div>
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+<script src="game.js"></script><script src="client.js"></script>
 </body>
 </html>
