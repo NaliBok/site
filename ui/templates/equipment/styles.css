@@ -135,7 +135,7 @@
 .uiEquipment .bottom .itemList .slot.show-default-icon .icon,
 .uiEquipment .bottom .runes .slot.show-default-icon .icon {
   opacity: 0.5;
-  background-image: url('images/uiIcons.png') !important;
+  background-image: url('../../../images/uiIcons.png') !important;
 }
 .uiEquipment .bottom .left .slot.show-default-icon[slot="head"] .icon,
 .uiEquipment .bottom .right .slot.show-default-icon[slot="head"] .icon,

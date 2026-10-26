@@ -102,7 +102,7 @@
   display: inline-block;
   width: 64px;
   height: 64px;
-  background: url('images/uiIcons.png') -256px -64px;
+  background: url('../../../images/uiIcons.png') -256px -64px;
 }
 .uiSmithing .col .content.actionButton {
   padding: 8px;
@@ -110,7 +110,7 @@
 .uiSmithing .col .content.actionButton .icon {
   width: 64px;
   height: 64px;
-  background: url('images/uiIcons.png') -192px -64px;
+  background: url('../../../images/uiIcons.png') -192px -64px;
 }
 .uiSmithing .col .content .item {
   width: 100%;
