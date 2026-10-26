@@ -135,7 +135,7 @@ define([
 			spirteX = -(spirteX * 32);
 			spriteY = -(spriteY * 32);
 
-			var spritesheet = result.previewSpritesheet || '../../../images/charas.png';
+			var spritesheet = result.previewSpritesheet || 'images/charas.png';
 
 			this.find('.sprite')
 				.css('background', 'url("' + spritesheet + '") ' + spirteX + 'px ' + spriteY + 'px')

@@ -236,7 +236,7 @@ define([
 				.on('mousemove', this.onHover.bind(this, el, item))
 				.on('mouseleave', this.hideTooltip.bind(this, el, item))
 				.find('.icon')
-				.css('background', 'url(../../../images/' + spritesheet + '.png) ' + imgX + 'px ' + imgY + 'px');
+				.css('background', 'url(images/' + spritesheet + '.png) ' + imgX + 'px ' + imgY + 'px');
 
 			if (item.quantity) {
 				var quantityText = item.quantityText;

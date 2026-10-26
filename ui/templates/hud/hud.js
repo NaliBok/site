@@ -27,7 +27,7 @@ define([
 
 			this.find('.portrait')
 				.css({
-					background: 'url("../../../images/portraitIcons.png") ' + x + 'px 0px',
+					background: 'url("images/portraitIcons.png") ' + x + 'px 0px',
 					visibility: 'visible'
 				});
 		},

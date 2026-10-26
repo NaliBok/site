@@ -117,7 +117,7 @@ define([
 						slot = 'rune-' + spellId;
 					}
 
-					var spritesheet = item.spritesheet || '../../../images/items.png';
+					var spritesheet = item.spritesheet || 'images/items.png';
 
 					var elSlot = this.find('[slot="' + slot + '"]');
 					elSlot
@@ -165,7 +165,7 @@ define([
 				.forEach(function(item) {
 					var sprite = item.sprite || [7, 0];
 
-					var spriteSheet = item.empty ? '../../../images/uiIcons.png' : item.spritesheet || '../../../images/items.png';
+					var spriteSheet = item.empty ? 'images/uiIcons.png' : item.spritesheet || 'images/items.png';
 					var imgX = -sprite[0] * 64;
 					var imgY = -sprite[1] * 64;
 

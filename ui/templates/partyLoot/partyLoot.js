@@ -65,7 +65,7 @@ define([
 				.data('item', msg);
 
 			el.find('.image')
-				.css('background', 'url(../../../images/' + spritesheet + '.png) ' + imgX + 'px ' + imgY + 'px')
+				.css('background', 'url(images/' + spritesheet + '.png) ' + imgX + 'px ' + imgY + 'px')
 				.on('mousemove', this.onHover.bind(this, el, item))
 				.on('mouseleave', this.hideTooltip.bind(this, item))
 

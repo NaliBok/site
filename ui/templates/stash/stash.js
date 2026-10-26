@@ -63,7 +63,7 @@ define([
 					.on('mousemove', this.onHover.bind(this, itemEl, item))
 					.on('mouseleave', this.hideTooltip.bind(this, itemEl, item))
 					.find('.icon')
-					.css('background', 'url(../../../images/' + spritesheet + '.png) ' + imgX + 'px ' + imgY + 'px')
+					.css('background', 'url(images/' + spritesheet + '.png) ' + imgX + 'px ' + imgY + 'px')
 					.on('contextmenu', this.showContext.bind(this, item));
 
 				if (item.quantity)

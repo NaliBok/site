@@ -37,7 +37,7 @@ define([
 			var html = templateBuff;
 			var el = $(html).appendTo(this.el)
 				.css({
-					background: 'url(../../../images/statusIcons.png) ' + imgX + 'px ' + imgY + 'px'
+					background: 'url(images/statusIcons.png) ' + imgX + 'px ' + imgY + 'px'
 				});
 
 			this.icons[buff.id] = el;

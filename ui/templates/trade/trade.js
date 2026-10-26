@@ -93,7 +93,7 @@ define([
 					.on('mousemove', this.onHover.bind(this, itemEl, item, action))
 					.on('mouseleave', uiInventory.hideTooltip.bind(uiInventory, itemEl, item))
 					.find('.icon')
-					.css('background', 'url(../../../images/' + spritesheet + '.png) ' + imgX + 'px ' + imgY + 'px');
+					.css('background', 'url(images/' + spritesheet + '.png) ' + imgX + 'px ' + imgY + 'px');
 
 				if (item.quantity)
 					itemEl.find('.quantity').html(item.quantity);

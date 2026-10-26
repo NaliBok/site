@@ -172,7 +172,7 @@ define([
 			var spirteX = -costume[0] * 32;
 			var spriteY = -costume[1] * 32;
 
-			var spritesheet = classSprite.spritesheet || '../../../images/charas.png';
+			var spritesheet = classSprite.spritesheet || 'images/charas.png';
 
 			this.find('.sprite')
 				.css('background', 'url("' + spritesheet + '") ' + spirteX + 'px ' + spriteY + 'px');

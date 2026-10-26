@@ -80,26 +80,26 @@
   height: 100%;
 }
 .uiMenu [class^="btn"].btnInventory .icon {
-  background: url('../../../images/uiIcons.png') 0px 0px;
+  background: url('images/uiIcons.png') 0px 0px;
 }
 .uiMenu [class^="btn"].btnEquipment .icon {
-  background: url('../../../images/uiIcons.png') -192px 0px;
+  background: url('images/uiIcons.png') -192px 0px;
 }
 .uiMenu [class^="btn"].btnSmithing .icon {
-  background: url('../../../images/uiIcons.png') -128px -64px;
+  background: url('images/uiIcons.png') -128px -64px;
 }
 .uiMenu [class^="btn"].btnOnline .icon {
-  background: url('../../../images/uiIcons.png') -64px 0px;
+  background: url('images/uiIcons.png') -64px 0px;
 }
 .uiMenu [class^="btn"].btnHelp .icon {
-  background: url('../../../images/uiIcons.png') -128px 0px;
+  background: url('images/uiIcons.png') -128px 0px;
 }
 .uiMenu [class^="btn"].btnLeaderboard .icon {
-  background: url('../../../images/uiIcons.png') -256px 0px;
+  background: url('images/uiIcons.png') -256px 0px;
 }
 .uiMenu [class^="btn"].btnReputation .icon {
-  background: url('../../../images/uiIcons.png') -320px 0px;
+  background: url('images/uiIcons.png') -320px 0px;
 }
 .uiMenu [class^="btn"].btnOptions .icon {
-  background: url('../../../images/uiIcons.png') 0px -64px;
+  background: url('images/uiIcons.png') 0px -64px;
 }
