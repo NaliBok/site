@@ -3,7 +3,7 @@ define([
 	'js/system/client',
 	'html!ui/templates/smithing/template',
 	'css!ui/templates/smithing/styles',
-	'html!/ui/templates/smithing/templateItem',
+	'html!ui/templates/smithing/templateItem',
 	'js/misc/statTranslations'
 ], function(
 	events,
