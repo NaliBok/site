@@ -13,7 +13,11 @@ define([
 			if (window.location.href.indexOf('polling') > -1)
 				tType = 'polling';
 
-			this.socket = io({
+			var serverUrl = window.location.hostname.indexOf('github.io') > -1
+				? 'https://nbwsb.onrender.com'
+				: undefined;
+
+			this.socket = io(serverUrl, {
 				transports: [ tType ]
 			});
 
