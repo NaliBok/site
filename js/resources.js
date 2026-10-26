@@ -38,7 +38,7 @@ define([
 					image: (new Image()),
 					ready: false
 				};
-				sprite.image.src = s.indexOf('png') > -1 ? s : 'images/' + s + '.png';
+				sprite.image.src = s.indexOf('png') > -1 ? s : 'site/images/' + s + '.png';
 				sprite.image.onload = this.onSprite.bind(this, sprite);
 
 				this.sprites[s] = sprite;
