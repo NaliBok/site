@@ -35,9 +35,23 @@ body {
   z-index: 20;
   overflow: hidden;
 }
-@font-face {
-  font-family: bitty;
-  src: url('../fonts/bitty.ttf');
+@font-face
+{
+    font-family: bitty;
+    src: url('../fonts/bitty.ttf');
+    unicode-range: U+0000-03FF, U+2000-2BFF;
+}
+
+/* bitty has no Cyrillic glyphs: Pixelify Sans (OFL) fills in U+0400+ and is metric-matched to bitty */
+@font-face
+{
+    font-family: bitty;
+    src: url('../fonts/pixelify-cyrillic.woff2') format('woff2');
+    unicode-range: U+0400-052F, U+1C80-1C8F, U+2DE0-2DFF, U+A640-A69F;
+    size-adjust: 104%;
+    ascent-override: 75%;
+    descent-override: 25%;
+    line-gap-override: 0%;
 }
 * {
   box-sizing: border-box;

@@ -181,7 +181,8 @@ define([
 		},
 
 		onResize: function() {
-			var zoom = window.devicePixelRatio;
+			//On phones the extra pixel ratio made the canvas larger than the screen after rotating
+			var zoom = ($('html').hasClass('touch')) ? 1 : window.devicePixelRatio;
 
 			this.width = $('body').width() * zoom;
 			this.height = $('body').height() * zoom;

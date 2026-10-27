@@ -8,6 +8,8 @@ define([
 	'js/input',
 	'js/system/events',
 	'js/resources',
+	'js/system/i18n',
+	'js/system/mobile',
 	'ui/templates/inventory/inventory',
 	'ui/templates/equipment/equipment',
 	'ui/templates/stash/stash',
@@ -29,7 +31,9 @@ define([
 	numbers,
 	input,
 	events,
-	resources
+	resources,
+	i18n,
+	mobile
 ) {
 	return {
 		hasFocus: true,
@@ -59,6 +63,9 @@ define([
 				e.preventDefault();
 				return false;
 			});
+
+			i18n.init();
+			mobile.init();
 
 			objects.init();
 			renderer.init();

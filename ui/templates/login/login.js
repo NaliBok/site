@@ -4,19 +4,23 @@ define([
 	'ui/factory',
 	'html!ui/templates/login/template',
 	'css!ui/templates/login/styles',
-	'js/renderer'
+	'js/renderer',
+	'js/system/i18n'
 ], function(
 	events,
 	client,
 	uiFactory,
 	template,
 	styles,
-	renderer
+	renderer,
+	i18n
 ) {
 	return {
 		tpl: template,
 		centered: true,
 		postRender: function() {
+			i18n.bindSwitch(this.el.find('.langSwitch')[0]);
+
 			this.onEvent('onHandshake', this.onHandshake.bind(this));
 
 			this.on('.btnLogin', 'click', this.onLoginClick.bind(this));

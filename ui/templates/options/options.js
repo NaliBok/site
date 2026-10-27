@@ -5,7 +5,8 @@ define([
 	'js/renderer',
 	'ui/factory',
 	'js/objects/objects',
-	'js/system/client'
+	'js/system/client',
+	'js/system/i18n'
 ], function(
 	events,
 	template,
@@ -13,7 +14,8 @@ define([
 	renderer,
 	factory,
 	objects,
-	client
+	client,
+	i18n
 ) {
 	return {
 		tpl: template,
@@ -25,12 +27,23 @@ define([
 			//this.onEvent('onKeyDown', this.onKeyDown.bind(this));
 			this.onEvent('onToggleOptions', this.toggle.bind(this));
 
+			this.el.find('.btnLanguage').on('click', function() {
+				i18n.nextLang();
+			});
+			this.updateLanguageLabel();
+			i18n.onChange(this.updateLanguageLabel.bind(this));
+
 			this.el.find('.btnScreen').on('click', this.toggleScreen.bind(this));
 			this.el.find('.btnCharSelect').on('click', this.charSelect.bind(this));
 			this.el.find('.btnLogOut').on('click', this.logOut.bind(this));
 			this.el.find('.btnContinue').on('click', this.toggle.bind(this));
 
 			this.onEvent('onResize', this.onResize.bind(this));
+		},
+
+		//Shows "Language: <native name of the current language>"
+		updateLanguageLabel: function() {
+			this.el.find('.btnLanguage').text(i18n.t('Language') + ': ' + i18n.languages[i18n.lang].name);
 		},
 
 		charSelect: function() {

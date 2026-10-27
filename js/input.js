@@ -50,7 +50,27 @@ define([
 			$('.ui-container')
 				.on('mousedown', this.events.mouse.mouseDown.bind(this))
 				.on('mouseup', this.events.mouse.mouseUp.bind(this))
-				.on('mousemove', this.events.mouse.mouseMove.bind(this));
+				.on('mousemove', this.events.mouse.mouseMove.bind(this))
+				.on('touchstart', this.events.touch.touchStart.bind(this))
+				.on('touchmove', this.events.touch.touchMove.bind(this))
+				.on('touchend touchcancel', this.events.touch.touchEnd.bind(this));
+		},
+
+		//Builds the subset of a mouse event the handlers below need, from the first touch point
+		touchToMouse: function(e) {
+			var oe = e.originalEvent || e;
+			var t = (oe.changedTouches && oe.changedTouches[0]) || (oe.touches && oe.touches[0]);
+			if (!t)
+				return null;
+
+			var rect = $('.ui-container')[0].getBoundingClientRect();
+
+			return {
+				target: e.target,
+				button: 0,
+				offsetX: t.clientX - rect.left,
+				offsetY: t.clientY - rect.top
+			};
 		},
 
 		resetKeys: function() {
@@ -142,6 +162,36 @@ define([
 					delete this.keys[key];
 
 					events.emit('onKeyUp', key);
+				}
+			},
+			touch: {
+				//Only touches that land on the bare game view are handled; taps on windows/buttons stay normal clicks
+				touchStart: function(e) {
+					var fake = this.touchToMouse(e);
+					if ((!fake) || (!$(e.target).hasClass('ui-container')))
+						return;
+
+					//stops the browser from also sending emulated mouse events, scrolling or zooming
+					e.preventDefault();
+
+					this.events.mouse.mouseMove.call(this, fake);
+					this.events.mouse.mouseDown.call(this, fake);
+				},
+				touchMove: function(e) {
+					var fake = this.touchToMouse(e);
+					if ((!fake) || (!$(e.target).hasClass('ui-container')))
+						return;
+
+					e.preventDefault();
+					this.events.mouse.mouseMove.call(this, fake);
+				},
+				touchEnd: function(e) {
+					var fake = this.touchToMouse(e);
+					if ((!fake) || (!$(e.target).hasClass('ui-container')))
+						return;
+
+					e.preventDefault();
+					this.events.mouse.mouseUp.call(this, fake);
 				}
 			},
 			mouse: {

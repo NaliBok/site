@@ -4,14 +4,16 @@ define([
 	'ui/factory',
 	'html!ui/templates/characters/template',
 	'html!ui/templates/characters/templateListItem',
-	'css!ui/templates/characters/styles'
+	'css!ui/templates/characters/styles',
+	'js/system/i18n'
 ], function(
 	events,
 	client,
 	uiFactory,
 	template,
 	templateListItem,
-	styles
+	styles,
+	i18n
 ) {
 	return {
 		tpl: template,
@@ -28,6 +30,8 @@ define([
 		},
 
 		postRender: function() {
+			i18n.bindSwitch(this.el.find('.langSwitch')[0]);
+
 			this.find('.btnPlay').on('click', this.onPlayClick.bind(this));
 			this.find('.btnNew').on('click', this.onNewClick.bind(this));
 			this.find('.btnDelete')

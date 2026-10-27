@@ -43,6 +43,10 @@ define([
 					.on('mouseover', this.onShowTooltip.bind(this, el, spells[i]))
 					.on('mouseleave', this.onHideTooltip.bind(this, el));
 
+				//no keyboard on touch devices: tapping the icon acts as pressing its hotkey
+				if ($('html').hasClass('touch'))
+					el.on('click', events.emit.bind(events, 'onKeyDown', String(i + 1)));
+
 				var spritesheet = spells[i].spritesheet || 'images/abilityIcons.png';
 				el
 					.find('.icon').css({

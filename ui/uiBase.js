@@ -36,6 +36,8 @@ define([
 				this.center(this.centeredX, this.centeredY);
 
 			this.shown = this.el.is(':visible');
+
+			events.emit('onUiLayout', this);
 		},
 		setOptions: function(options) {
 			this.options = options;
@@ -76,6 +78,9 @@ define([
 				el.css('left', posX);
 			if (y)
 				el.css('top', posY);
+
+			//layout size is unaffected by the mobile fit-scale (transform), so centering stays exact
+			events.emit('onUiLayout', this);
 		},
 		show: function() {
 			if (this.modal)
@@ -83,6 +88,8 @@ define([
 
 			this.shown = true;
 			this.el.show();
+
+			events.emit('onUiLayout', this);
 		},
 		hide: function() {
 			if (this.beforeHide)
