@@ -1,12 +1,6 @@
-define([
-	'fs'
-], function(
-	fs
-) {
+define([], function() {
 	return {
 		db: null,
-		file: 'storage.db',
-		exists: false,
 
 		tables: {
 			character: null,
@@ -19,29 +13,25 @@ define([
 		},
 
 		init: function(cbReady) {
-			var sqlite = require('sqlite3').verbose();
-			this.exists = fs.existsSync(this.file);
-			this.db = new sqlite.Database(this.file, this.onDbCreated.bind(this, cbReady));
-		},
-		onDbCreated: function(cbReady) {
-			if (this.exists) {
-				cbReady();
-				return;
-			}
+			var createClient = require('@libsql/client').createClient;
 
-			var db = this.db;
-			var tables = this.tables;
-			db.serialize(function() {
-				for (var t in tables) {
-					db.run(`
-						CREATE TABLE ${t} (key VARCHAR(50), value TEXT)
-					`);
-				}
+			this.db = createClient({
+				url: process.env.TURSO_URL || 'file:storage.db',
+				authToken: process.env.TURSO_TOKEN
+			});
 
-				cbReady();
-			}, this);
+			var statements = Object.keys(this.tables).map(function(t) {
+				return `CREATE TABLE IF NOT EXISTS ${t} (key VARCHAR(50), value TEXT)`;
+			});
 
-			this.exists = true;
+			this.db.batch(statements, 'write')
+				.then(function() {
+					cbReady();
+				})
+				.catch(function(e) {
+					console.log('DB init error', e);
+					cbReady();
+				});
 		},
 
 		//ent, field
@@ -51,7 +41,9 @@ define([
 
 			options.query = `SELECT * FROM ${table} WHERE key = '${key}' LIMIT 1`;
 
-			this.db.get(options.query, this.done.bind(this, options));
+			this.run(options, function(rs) {
+				return rs.rows.length ? rs.rows[0].value : null;
+			});
 		},
 
 		delete: function(options) {
@@ -60,7 +52,7 @@ define([
 
 			options.query = `DELETE FROM ${table} WHERE key = '${key}'`;
 
-			this.db.run(options.query, this.done.bind(this, options));
+			this.run(options);
 		},
 
 		//ent, field, value
@@ -68,25 +60,36 @@ define([
 			var key = options.ent;
 			var table = options.field;
 
-			this.db.get(`SELECT 1 FROM ${table} where key = '${key}'`, this.doesExist.bind(this, options));
+			this.db.execute(`SELECT 1 FROM ${table} WHERE key = '${key}'`)
+				.then(this.doesExist.bind(this, options))
+				.catch(this.fail.bind(this, options));
 		},
-		doesExist: function(options, err, result) {
+		doesExist: function(options, rs) {
 			var key = options.ent;
 			var table = options.field;
 
-			var query = `INSERT INTO ${table} (key, value) VALUES('${key}', '${options.value}')`;
+			options.query = `INSERT INTO ${table} (key, value) VALUES('${key}', '${options.value}')`;
 
-			if (result)
-				query = `UPDATE ${table} SET value = '${options.value}' WHERE key = '${key}'`;
+			if (rs.rows.length)
+				options.query = `UPDATE ${table} SET value = '${options.value}' WHERE key = '${key}'`;
 
-			this.db.run(query, this.done.bind(this, options));
+			this.run(options);
 		},
 
-		done: function(options, err, result) {
-			result = result || { value: null };
+		run: function(options, mapResult) {
+			this.db.execute(options.query)
+				.then(function(rs) {
+					if (options.callback)
+						options.callback(mapResult ? mapResult(rs) : null);
+				})
+				.catch(this.fail.bind(this, options));
+		},
+
+		fail: function(options, e) {
+			console.log('DB error', e);
 
 			if (options.callback)
-				options.callback(result.value);
+				options.callback(null);
 		}
 	};
 });
